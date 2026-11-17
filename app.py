@@ -11,7 +11,7 @@ import os
 st.set_page_config(page_title="WA Status Real Code Generator", page_icon="⚡", layout="centered")
 
 st.title("⚡ WA Status Real Code Generator")
-st.markdown("Tulis kalimat biasa → sistem otomatis merangkainya menjadi **struktur kode pemrograman dinamis** (variabel, fungsi, `if/else`, dan eksekusi log) yang unik sesuai isi teks Anda.")
+st.markdown("Tulis kalimat biasa → otomatis dirangkai menjadi kode pemrograman lengkap dengan **log error spesifik (file & nomor baris)** saat statusnya **ERROR**.")
 
 # --- TEMA WARNA KONTRAS TINGGI ---
 THEMES = {
@@ -43,7 +43,7 @@ with col1:
 with col2:
     lang_mode = st.selectbox("Bahasa Kode:", ["JavaScript / TS", "Python", "C++"])
 with col3:
-    ending_mode = st.selectbox("Hasil Akhir:", ["Auto-Deteksi", "PAUSED", "SUCCESS", "ERROR"])
+    ending_mode = st.selectbox("Hasil Akhir:", ["Auto-Deteksi", "ERROR", "PAUSED", "SUCCESS"])
 
 th = THEMES[theme_name]
 
@@ -55,7 +55,7 @@ Take a break.
 Let the world run its own program."""
 
 user_words = st.text_area(
-    "Ganti Kata-Kata di Sini (Nama variabel & logika kode otomatis menyesuaikan isi teks):",
+    "Ganti Kata-Kata di Sini:",
     value=default_words,
     height=175
 )
@@ -67,7 +67,6 @@ with st.expander("⚙️ Pengaturan Kecepatan & Audio"):
 fps = 20
 
 def extract_slug(text, fallback="state"):
-    # Ambil 1-2 kata penting dari kalimat untuk dijadikan nama variabel/fungsi dinamis
     words = re.findall(r"[a-zA-Z]{3,}", text.lower())
     stop = {"the", "and", "for", "are", "but", "not", "you", "all", "just", "some", "that", "with", "yang", "dan", "ini", "itu", "untuk", "dari"}
     filtered = [w for w in words if w not in stop]
@@ -81,22 +80,26 @@ def detect_outcome(text, choice):
     if choice != "Auto-Deteksi":
         return choice.lower()
     low = text.lower()
-    if any(w in low for w in ["pause", "rest", "break", "world run", "stop", "istirahat", "jeda"]):
-        return "paused"
     if any(w in low for w in ["error", "fail", "crash", "gagal", "rusak", "hancur", "hilang", "putus", "kecewa", "sakit"]):
         return "error"
+    if any(w in low for w in ["pause", "rest", "break", "world run", "stop", "istirahat", "jeda"]):
+        return "paused"
     return "success"
 
-# --- GENERATOR KODE DINAMIS BERBASIS ISI TEKS ---
+# --- GENERATOR KODE + LOG ERROR DETAIL (FILE, BARIS KE-X, PENYEBAB) ---
 def build_dynamic_code_tokens(raw_text, lang, outcome):
     lines = [l.strip() for l in raw_text.strip().split("\n") if l.strip()]
     if not lines:
-        return [], []
+        return [], [], "empty", None
 
     main_fn = extract_slug(lines[0], "check_reality")
-    code_rows = []  # list of list of (token_text, color_key)
+    code_rows = []
+    error_line_num = 1  # Melacak nomor baris pasti tempat error terjadi
+    error_var_name = extract_slug(lines[-1], "promise_state")
+    error_reason = lines[-1].replace('"', "'")
 
     if lang == "JavaScript / TS":
+        ext = "js"
         code_rows.append([("async function", "kw"), (" ", "norm"), (f"{main_fn}", "fn"), ("() {", "norm")])
         for idx, line in enumerate(lines):
             clean = line.replace('"', "'")
@@ -115,17 +118,37 @@ def build_dynamic_code_tokens(raw_text, lang, outcome):
             else:
                 code_rows.append([("  let", "kw"), (f" {var_name} ", "var"), ("= ", "norm"), (f'"{clean}"', "str"), (";", "norm")])
 
+        error_line_num = len(code_rows) + 1
         if outcome == "paused":
             code_rows.append([("  return", "kw"), (" ", "norm"), ('"SESSION_PAUSED"', "str"), (";", "norm")])
         elif outcome == "error":
-            code_rows.append([("  throw new", "kw"), (" ", "norm"), ("Error", "fn"), ('("SYSTEM_CRASH")', "str"), (";", "norm")])
+            code_rows.append([("  throw new", "kw"), (" ", "norm"), ("Error", "fn"), (f'("{error_var_name}_FAILED")', "str"), (";", "norm")])
         else:
             code_rows.append([("  return", "kw"), (" ", "norm"), ('"SYSTEM_OK"', "str"), (";", "norm")])
         code_rows.append([("}", "norm")])
 
-        exec_logs = [f"$ node {main_fn}.js", f"> Executing {main_fn}()..."]
+        if outcome == "error":
+            exec_logs = [
+                (f"$ node {main_fn}.{ext}", "norm"),
+                (f"Error: {error_var_name}_FAILED (NullPromiseException)", "err"),
+                (f"  at {main_fn} ({main_fn}.{ext}:{error_line_num}:9)", "err"),
+                (f"  Cause -> \"{error_reason[:42]}\"", "warn")
+            ]
+        elif outcome == "paused":
+            exec_logs = [
+                (f"$ node {main_fn}.{ext}", "norm"),
+                (f"> Executing {main_fn}()...", "cmt"),
+                (f"[WARN] Process suspended at line {error_line_num}", "warn")
+            ]
+        else:
+            exec_logs = [
+                (f"$ node {main_fn}.{ext}", "norm"),
+                (f"> Executing {main_fn}()...", "cmt"),
+                ("[OK] Resolved cleanly (0 errors)", "ok")
+            ]
 
     elif lang == "Python":
+        ext = "py"
         code_rows.append([("def", "kw"), (" ", "norm"), (f"{main_fn}", "fn"), ("():", "norm")])
         for idx, line in enumerate(lines):
             clean = line.replace('"', "'")
@@ -143,16 +166,36 @@ def build_dynamic_code_tokens(raw_text, lang, outcome):
             else:
                 code_rows.append([(f"    {var_name} ", "var"), ("= ", "norm"), (f'"{clean}"', "str")])
 
+        error_line_num = len(code_rows) + 1
         if outcome == "paused":
             code_rows.append([("    return", "kw"), (" ", "norm"), ('"SESSION_PAUSED"', "str")])
         elif outcome == "error":
-            code_rows.append([("    raise", "kw"), (" ", "norm"), ("SystemError", "fn"), ('("HALTED")', "str")])
+            code_rows.append([("    raise", "kw"), (" ", "norm"), ("RuntimeError", "fn"), (f'("{error_var_name}")', "str")])
         else:
             code_rows.append([("    return", "kw"), (" ", "norm"), ('"REPAIRED"', "str")])
 
-        exec_logs = [f"$ python3 {main_fn}.py", f"> Running {main_fn}()..."]
+        if outcome == "error":
+            exec_logs = [
+                (f"$ python3 {main_fn}.{ext}", "norm"),
+                (f"File \"{main_fn}.{ext}\", line {error_line_num}, in {main_fn}", "err"),
+                (f"RuntimeError: {error_var_name} -> EmptyPromise", "err"),
+                (f"Detail: \"{error_reason[:42]}\"", "warn")
+            ]
+        elif outcome == "paused":
+            exec_logs = [
+                (f"$ python3 {main_fn}.{ext}", "norm"),
+                (f"> Running {main_fn}()...", "cmt"),
+                (f"[PAUSED] Thread halted at line {error_line_num}", "warn")
+            ]
+        else:
+            exec_logs = [
+                (f"$ python3 {main_fn}.{ext}", "norm"),
+                (f"> Running {main_fn}()...", "cmt"),
+                ("[OK] Completed with 0 exceptions", "ok")
+            ]
 
     else:  # C++
+        ext = "cpp"
         code_rows.append([("int", "kw"), (" ", "norm"), (f"{main_fn}", "fn"), ("() {", "norm")])
         for idx, line in enumerate(lines):
             clean = line.replace('"', "'")
@@ -165,17 +208,37 @@ def build_dynamic_code_tokens(raw_text, lang, outcome):
             else:
                 code_rows.append([("    auto", "kw"), (f" {var_name} ", "var"), ("= ", "norm"), (f'"{clean}"', "str"), (";", "norm")])
 
+        error_line_num = len(code_rows) + 1
         if outcome == "paused":
             code_rows.append([("    return", "kw"), (" SESSION_PAUSED;", "var")])
         elif outcome == "error":
-            code_rows.append([("    return", "kw"), (" EXIT_FAILURE;", "var")])
+            code_rows.append([("    assert", "fn"), (f"({error_var_name} != nullptr);", "norm")])
         else:
             code_rows.append([("    return", "kw"), (" EXIT_SUCCESS;", "var")])
         code_rows.append([("}", "norm")])
 
-        exec_logs = [f"$ ./{main_fn} --run", "> Linking runtime modules..."]
+        if outcome == "error":
+            exec_logs = [
+                (f"$ ./{main_fn} --run", "norm"),
+                (f"SEGFAULT at {main_fn}.{ext}:line {error_line_num}", "err"),
+                (f"Assertion `{error_var_name} != nullptr` failed", "err"),
+                (f"Dump: \"{error_reason[:42]}\"", "warn")
+            ]
+        elif outcome == "paused":
+            exec_logs = [
+                (f"$ ./{main_fn} --run", "norm"),
+                ("> Linking runtime modules...", "cmt"),
+                (f"[SUSPEND] SIGSTOP received at line {error_line_num}", "warn")
+            ]
+        else:
+            exec_logs = [
+                (f"$ ./{main_fn} --run", "norm"),
+                ("> Linking runtime modules...", "cmt"),
+                ("[SUCCESS] Binary exited cleanly (0)", "ok")
+            ]
 
-    return code_rows, exec_logs, main_fn
+    err_line_to_highlight = error_line_num if outcome == "error" else None
+    return code_rows, exec_logs, f"{main_fn}.{ext}", err_line_to_highlight
 
 @st.cache_resource
 def get_font(size, bold=False):
@@ -188,16 +251,15 @@ def get_font(size, bold=False):
             return ImageFont.truetype(p, size)
     return ImageFont.load_default()
 
-# --- RENDERER FRAME KODE FULL SCREEN BERSIH (540x960) ---
+# --- RENDERER FRAME KODE + HIGHLIGHT BARIS ERROR ---
 def render_code_frame(
     completed_rows, active_row, active_chars, cursor_on,
-    exec_logs, outcome, show_final_status, file_label, th, w=540, h=960
+    exec_logs, outcome, show_final_status, file_label, err_line_num, th, w=540, h=960
 ):
     img = Image.new("RGB", (w, h), color=th["bg"])
     draw = ImageDraw.Draw(img)
 
-    # Kartu editor besar di tengah layar tanpa sidebar yang bikin sempit
-    mx, my = 22, 75
+    mx, my = 22, 65
     ww, wh = w - (mx * 2), h - (my * 2)
 
     border_col = th["border"]
@@ -211,7 +273,7 @@ def render_code_frame(
 
     draw.rectangle([mx, my, mx + ww, my + wh], fill=th["card"], outline=border_col, width=2)
 
-    # Top bar minimalis nama file
+    # Top bar nama file
     hh = 36
     draw.line([(mx, my + hh), (mx + ww, my + hh)], fill=th["border"], width=1)
     draw.ellipse([mx + 14, my + 12, mx + 24, my + 22], fill=(255, 95, 86))
@@ -221,17 +283,24 @@ def render_code_frame(
     f_hdr = get_font(13, bold=True)
     draw.text((mx + 70, my + 10), file_label, fill=th["cmt"], font=f_hdr)
 
-    f_code = get_font(17)
+    f_code = get_font(16)
     f_num = get_font(13)
 
     gutter_x = mx + 12
     code_x = mx + 44
     max_code_w = ww - 58
-    line_h = 25
-    max_y = my + wh - 165  # Sisakan area bawah untuk output eksekusi
+    line_h = 24
+    max_y = my + wh - 205  # Ruang lebih lega di bawah untuk stack trace error
 
     def draw_tokens(row_tokens, line_num, y_pos, char_limit=None, draw_cursor=False):
-        draw.text((gutter_x, y_pos + 2), f"{line_num:2d}", fill=th["cmt"], font=f_num)
+        # Jika status akhir ERROR dan baris ini adalah baris penyebab error -> beri highlight merah!
+        is_err_row = (show_final_status and err_line_num == line_num)
+        if is_err_row:
+            draw.rectangle([mx + 2, y_pos - 2, mx + ww - 2, y_pos + line_h], fill=(75, 14, 20))
+            draw.text((gutter_x, y_pos + 2), f"{line_num:2d}", fill=(255, 85, 95), font=f_num)
+        else:
+            draw.text((gutter_x, y_pos + 2), f"{line_num:2d}", fill=th["cmt"], font=f_num)
+
         cx = code_x
         cy = y_pos
         count = 0
@@ -245,22 +314,24 @@ def render_code_frame(
             else:
                 piece = txt
 
-            col = th.get(role, th["norm"])
+            col = (255, 110, 120) if is_err_row else th.get(role, th["norm"])
             for ch in piece:
                 cw = draw.textbbox((0, 0), ch, font=f_code)[2]
                 if cx + cw > code_x + max_code_w:
                     cx = code_x + 18
                     cy += line_h
+                    if is_err_row:
+                        draw.rectangle([mx + 2, cy - 2, mx + ww - 2, cy + line_h], fill=(75, 14, 20))
                 draw.text((cx, cy), ch, fill=col, font=f_code)
                 cx += cw
                 count += 1
 
         if draw_cursor and cursor_on:
-            draw.rectangle([cx + 1, cy + 2, cx + 10, cy + 19], fill=th["fn"])
+            draw.rectangle([cx + 1, cy + 2, cx + 10, cy + 18], fill=th["fn"])
 
         return cy + line_h
 
-    curr_y = my + hh + 18
+    curr_y = my + hh + 16
     ln = 1
     for r_tokens in completed_rows:
         if curr_y > max_y:
@@ -271,23 +342,44 @@ def render_code_frame(
     if active_row is not None and curr_y <= max_y:
         curr_y = draw_tokens(active_row, ln, curr_y, char_limit=active_chars, draw_cursor=True)
 
-    # --- AREA OUTPUT EKSEKUSI DI BAGIAN BAWAH KARTU ---
-    out_top = my + wh - 150
-    draw.line([(mx + 14, out_top), (mx + ww - 14, out_top)], fill=th["border"], width=1)
+    # --- PANEL TERMINAL LOG EKSEKUSI & ERROR STACK TRACE ---
+    out_top = my + wh - 190
+    draw.line([(mx + 12, out_top), (mx + ww - 12, out_top)], fill=th["border"], width=1)
 
-    f_out = get_font(14)
-    oy = out_top + 12
-    for log_txt in exec_logs:
-        draw.text((mx + 18, oy), log_txt, fill=th["cmt"], font=f_out)
-        oy += 22
+    f_out = get_font(13)
+    log_colors = {
+        "norm": th["norm"],
+        "cmt": th["cmt"],
+        "err": (255, 80, 90),
+        "warn": (255, 200, 65),
+        "ok": (75, 245, 135)
+    }
+
+    oy = out_top + 10
+    for log_txt, log_kind in exec_logs:
+        l_col = log_colors.get(log_kind, th["cmt"])
+        # Wrap agar path & baris error tidak terpotong di pinggir layar
+        words = log_txt.split(" ")
+        cur_l = ""
+        for wd in words:
+            test = cur_l + (" " if cur_l else "") + wd
+            if draw.textbbox((0, 0), test, font=f_out)[2] <= (ww - 36):
+                cur_l = test
+            else:
+                draw.text((mx + 16, oy), cur_l, fill=l_col, font=f_out)
+                oy += 17
+                cur_l = "  " + wd
+        if cur_l:
+            draw.text((mx + 16, oy), cur_l, fill=l_col, font=f_out)
+            oy += 19
 
     if show_final_status:
         bx1, bx2 = mx + 16, mx + ww - 16
         by2 = my + wh - 14
-        by1 = by2 - 44
+        by1 = by2 - 42
 
         if outcome == "error":
-            bg_b, fg_b, status_lbl = (65, 12, 18), (255, 75, 85), "✖ EXIT CODE 1 // SYSTEM ERROR"
+            bg_b, fg_b, status_lbl = (70, 12, 18), (255, 75, 85), f"✖ ERROR AT LINE {err_line_num} // EXIT 1"
         elif outcome == "paused":
             bg_b, fg_b, status_lbl = (55, 42, 8), (255, 200, 50), "⏸ EXIT CODE 0 // SESSION PAUSED"
         else:
@@ -362,9 +454,7 @@ if st.button("🎬 Generate Video Kode Programmer", type="primary", use_containe
                 pass
 
         outcome = detect_outcome(user_words, ending_mode)
-        code_rows, exec_logs, fn_name = build_dynamic_code_tokens(user_words, lang_mode, outcome)
-        ext = "js" if lang_mode == "JavaScript / TS" else ("py" if lang_mode == "Python" else "cpp")
-        file_label = f"{fn_name}.{ext}"
+        code_rows, exec_logs, file_label, err_line_num = build_dynamic_code_tokens(user_words, lang_mode, outcome)
 
         with st.spinner("Menyusun logika kode & merender video..."):
             w, h = 540, 960
@@ -383,7 +473,7 @@ if st.button("🎬 Generate Video Kode Programmer", type="primary", use_containe
                         sim_f += f_per_char
                     sim_f += int(fps * 0.15)
 
-            run_frames = len(exec_logs) * int(fps * 0.35) + int(fps * 1.1)
+            run_frames = len(exec_logs) * int(fps * 0.35) + int(fps * 1.2)
             total_frames = sim_f + run_frames
             total_dur = max(1.0, total_frames / fps)
 
@@ -411,29 +501,29 @@ if st.button("🎬 Generate Video Kode Programmer", type="primary", use_containe
             try:
                 completed = []
                 for f in range(int(fps * 0.25)):
-                    proc.stdin.write(render_code_frame(completed, [], 0, (f // 4) % 2 == 0, [], outcome, False, file_label, th, w, h))
+                    proc.stdin.write(render_code_frame(completed, [], 0, (f // 4) % 2 == 0, [], outcome, False, file_label, err_line_num, th, w, h))
 
                 for idx, r_tokens in enumerate(code_rows):
                     full_s = "".join(t[0] for t in r_tokens)
                     if idx == 0:
                         completed.append(r_tokens)
                         for _ in range(int(fps * 0.25)):
-                            proc.stdin.write(render_code_frame(completed, None, 0, False, [], outcome, False, file_label, th, w, h))
+                            proc.stdin.write(render_code_frame(completed, None, 0, False, [], outcome, False, file_label, err_line_num, th, w, h))
                     else:
                         for ci in range(1, len(full_s) + 1):
                             for _ in range(f_per_char):
-                                proc.stdin.write(render_code_frame(completed, r_tokens, ci, True, [], outcome, False, file_label, th, w, h))
+                                proc.stdin.write(render_code_frame(completed, r_tokens, ci, True, [], outcome, False, file_label, err_line_num, th, w, h))
                         completed.append(r_tokens)
                         for _ in range(int(fps * 0.15)):
-                            proc.stdin.write(render_code_frame(completed, None, 0, False, [], outcome, False, file_label, th, w, h))
+                            proc.stdin.write(render_code_frame(completed, None, 0, False, [], outcome, False, file_label, err_line_num, th, w, h))
 
                 shown_logs = []
-                for l_idx, l_txt in enumerate(exec_logs):
-                    shown_logs.append(l_txt)
+                for l_idx, l_entry in enumerate(exec_logs):
+                    shown_logs.append(l_entry)
                     is_last = (l_idx == len(exec_logs) - 1)
-                    hold = int(fps * 1.1) if is_last else int(fps * 0.35)
+                    hold = int(fps * 1.2) if is_last else int(fps * 0.35)
                     for _ in range(hold):
-                        proc.stdin.write(render_code_frame(completed, None, 0, False, shown_logs, outcome, is_last, file_label, th, w, h))
+                        proc.stdin.write(render_code_frame(completed, None, 0, False, shown_logs, outcome, is_last, file_label, err_line_num, th, w, h))
 
                 proc.stdin.close()
                 proc.wait()
