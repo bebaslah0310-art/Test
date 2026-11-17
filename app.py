@@ -5,48 +5,85 @@ from moviepy.editor import ImageSequenceClip, AudioClip
 import tempfile
 import os
 
-# Konfigurasi Halaman
-st.set_page_config(page_title="WA Status Coder Generator", page_icon="💻", layout="centered")
+st.set_page_config(page_title="WA Status System Terminal", page_icon="💻", layout="centered")
 
-st.title("💻 WA Status Programmer Generator")
-st.markdown("Buat video status WhatsApp (9:16) dengan efek ketikan terminal CMD/Hacker.")
+st.title("💻 WA Status System Terminal Generator")
+st.markdown("Simulasi eksekusi skrip CMD/Linux: perintah diketik manual, output sistem muncul instan, dengan suara *mechanical keyboard* presisi.")
 
 # --- SIDEBAR PENGATURAN ---
-st.sidebar.header("⚙️ Pengaturan Tampilan")
+st.sidebar.header("⚙️ Pengaturan Terminal")
 
 theme = st.sidebar.selectbox(
     "Tema Terminal",
-    ["Matrix Green (Hitam - Hijau)", "Cyberpunk (Gelap - Cyan/Pink)", "Amber Retro (Hitam - Oranye)", "Ubuntu Terminal (Ungu - Putih)"]
+    [
+        "Kali Linux / Matrix (Hitam - Hijau)",
+        "Windows CMD Classic (Hitam - Putih/Abu)",
+        "Cyberpunk Dark (Gelap - Cyan/Pink)",
+        "Amber Mainframe (Hitam - Oranye)"
+    ]
 )
 
-# Definisi Warna Tema
 THEMES = {
-    "Matrix Green (Hitam - Hijau)": {"bg": (10, 12, 10), "text": (0, 255, 65), "header": (25, 30, 25), "prompt": (0, 180, 45)},
-    "Cyberpunk (Gelap - Cyan/Pink)": {"bg": (13, 17, 23), "text": (0, 240, 255), "header": (22, 27, 34), "prompt": (255, 42, 109)},
-    "Amber Retro (Hitam - Oranye)": {"bg": (15, 10, 5), "text": (255, 176, 0), "header": (30, 22, 15), "prompt": (200, 120, 0)},
-    "Ubuntu Terminal (Ungu - Putih)": {"bg": (48, 10, 36), "text": (245, 245, 245), "header": (65, 20, 50), "prompt": (118, 215, 114)}
+    "Kali Linux / Matrix (Hitam - Hijau)": {
+        "bg": (10, 12, 10),
+        "cmd": (0, 255, 65),       # Warna ketikan perintah
+        "out": (180, 235, 190),    # Warna output sistem
+        "header": (25, 30, 25),
+        "border": (0, 180, 45)
+    },
+    "Windows CMD Classic (Hitam - Putih/Abu)": {
+        "bg": (12, 12, 12),
+        "cmd": (255, 255, 255),
+        "out": (204, 204, 204),
+        "header": (35, 35, 35),
+        "border": (100, 100, 100)
+    },
+    "Cyberpunk Dark (Gelap - Cyan/Pink)": {
+        "bg": (13, 17, 23),
+        "cmd": (255, 42, 109),
+        "out": (0, 240, 255),
+        "header": (22, 27, 34),
+        "border": (0, 240, 255)
+    },
+    "Amber Mainframe (Hitam - Oranye)": {
+        "bg": (15, 10, 5),
+        "cmd": (255, 190, 30),
+        "out": (220, 140, 20),
+        "header": (30, 22, 15),
+        "border": (200, 120, 0)
+    }
 }
 colors = THEMES[theme]
 
-window_title = st.sidebar.text_input("Judul Window CMD", value="root@server:~# bash status.sh")
-font_size = st.sidebar.slider("Ukuran Font", min_value=24, max_value=48, value=32)
-fps = st.sidebar.selectbox("FPS Video", [24, 30], index=0)
-typing_speed = st.sidebar.slider("Kecepatan Ketik (Karakter per Detik)", min_value=8, max_value=30, value=16)
-add_sound = st.sidebar.checkbox("Tambahkan Efek Suara Ketikan (Beep/Click)", value=True)
+window_title = st.sidebar.text_input("Judul Window Terminal", value="Administrator: Command Prompt - system.exe")
+font_size = st.sidebar.slider("Ukuran Font", min_value=22, max_value=42, value=28)
+fps = 30  # Dikunci di 30 FPS agar sinkronisasi audio-frame maksimal
+typing_speed = st.sidebar.slider("Kecepatan Ketik Perintah (Karakter/Detik)", min_value=8, max_value=25, value=14)
+add_sound = st.sidebar.checkbox("Suara Mechanical Keyboard + Enter", value=True)
 
-# --- INPUT TEKS ---
-default_text = """$ initializing system... [OK]
-$ loading_mindset.sh
+# --- PANDUAN FORMAT ---
+with st.expander("📖 Cara Kerja Format Teks (Klik untuk baca)", expanded=False):
+    st.markdown("""
+    * **Awali baris dengan `$` atau `>`** : Sistem akan **mengetiknya huruf demi huruf** seolah-olah programmer sedang mengetik perintah (disertai suara ketikan).
+    * **Baris TANPA `$` atau `>`** : Dianggap sebagai **respon/output sistem**, sehingga langsung muncul seketika setelah tombol *Enter* ditekan.
+    * **Gunakan `[LOADING]`** : Otomatis memunculkan animasi progress bar `[██████████] 100%`.
+    """)
 
-"Jangan pernah menyerah hanya karena error hari ini.
+default_script = """$ ./check_mindset.sh --user=me
+[INFO] Memindai status mental...
+[LOADING]
+[OK] Fokus terverifikasi.
 
-Kadang hidup butuh di-debug,
-bukan di-uninstall."
+$ echo "Catatan Hari Ini:"
+> Error di tengah jalan itu wajar.
+> Yang penting jangan stop prosesnya,
+> cukup debug lalu compile ulang.
 
-$ status: tetap_semangat --force
-$ exit 0_"""
+$ systemctl restart semangat.service
+[SUCCESS] Service berjalan normal (PID 2026).
+$ exit"""
 
-user_text = st.text_area("Masukkan Teks / Kode yang Akan Diketik:", value=default_text, height=220)
+user_script = st.text_area("Masukkan Skenario Terminal:", value=default_script, height=260)
 
 # --- FUNGSI LOAD FONT ---
 def get_font(size):
@@ -60,154 +97,233 @@ def get_font(size):
             return ImageFont.truetype(path, size)
     return ImageFont.load_default()
 
-# --- FUNGSI WRAP TEXT AGAR TIDAK KELUAR LAYAR ---
-def wrap_text(text, font, max_width, draw):
-    lines = []
-    for paragraph in text.split('\n'):
-        if paragraph == "":
-            lines.append("")
-            continue
-        words = paragraph.split(' ')
-        current_line = ""
-        for word in words:
-            test_line = current_line + (" " if current_line else "") + word
-            bbox = draw.textbbox((0, 0), test_line, font=font)
-            w = bbox[2] - bbox[0]
-            if w <= max_width:
-                current_line = test_line
-            else:
-                if current_line:
-                    lines.append(current_line)
-                # Jika satu kata sangat panjang, potong paksa
-                while draw.textbbox((0, 0), word, font=font)[2] > max_width:
-                    for i in range(1, len(word)):
-                        if draw.textbbox((0, 0), word[:i], font=font)[2] > max_width:
-                            lines.append(word[:i-1])
-                            word = word[i-1:]
-                            break
-                current_line = word
-        if current_line:
-            lines.append(current_line)
-    return "\n".join(lines)
+# --- FUNGSI WRAP PER BARIS ---
+def wrap_single_line(line, font, max_width, draw):
+    if not line:
+        return [""]
+    words = line.split(' ')
+    wrapped = []
+    current = ""
+    for word in words:
+        test = current + (" " if current else "") + word
+        if draw.textbbox((0, 0), test, font=font)[2] <= max_width:
+            current = test
+        else:
+            if current:
+                wrapped.append(current)
+            # Potong paksa jika 1 kata melebihi lebar layar
+            while draw.textbbox((0, 0), word, font=font)[2] > max_width:
+                for i in range(1, len(word)):
+                    if draw.textbbox((0, 0), word[:i], font=font)[2] > max_width:
+                        wrapped.append(word[:i-1])
+                        word = word[i-1:]
+                        break
+            current = word
+    if current:
+        wrapped.append(current)
+    return wrapped
 
-# --- FUNGSI RENDER FRAME ---
-def render_frame(visible_text, show_cursor, font, colors, title, width=720, height=1280):
+# --- RENDER FRAME TERMINAL ---
+def render_terminal_frame(history_lines, active_cmd_text, show_cursor, font, colors, title, width=720, height=1280):
     img = Image.new("RGB", (width, height), color=colors["bg"])
     draw = ImageDraw.Draw(img)
 
-    # Margin Window Terminal di tengah layar 9:16
-    margin_x = 45
-    margin_y = 220
+    margin_x = 40
+    margin_y = 200
     win_w = width - (margin_x * 2)
     win_h = height - (margin_y * 2)
 
-    # Kotak Utama Terminal + Border Tipis
-    draw.rectangle([margin_x, margin_y, margin_x + win_w, margin_y + win_h], fill=colors["bg"], outline=colors["prompt"], width=2)
+    # Frame Window Terminal
+    draw.rectangle([margin_x, margin_y, margin_x + win_w, margin_y + win_h], fill=colors["bg"], outline=colors["border"], width=2)
 
-    # Header Bar Terminal (macOS / Linux style)
-    header_h = 50
+    # Header Bar
+    header_h = 48
     draw.rectangle([margin_x, margin_y, margin_x + win_w, margin_y + header_h], fill=colors["header"])
-    
-    # 3 Tombol Window (Merah, Kuning, Hijau)
-    btn_y = margin_y + 25
-    draw.ellipse([margin_x + 20, btn_y - 8, margin_x + 36, btn_y + 8], fill=(255, 95, 86))
-    draw.ellipse([margin_x + 48, btn_y - 8, margin_x + 64, btn_y + 8], fill=(255, 189, 46))
-    draw.ellipse([margin_x + 76, btn_y - 8, margin_x + 92, btn_y + 8], fill=(39, 201, 63))
+    btn_y = margin_y + 24
+    draw.ellipse([margin_x + 20, btn_y - 7, margin_x + 34, btn_y + 7], fill=(255, 95, 86))
+    draw.ellipse([margin_x + 46, btn_y - 7, margin_x + 60, btn_y + 7], fill=(255, 189, 46))
+    draw.ellipse([margin_x + 72, btn_y - 7, margin_x + 86, btn_y + 7], fill=(39, 201, 63))
 
-    # Judul Window
-    title_font = get_font(18)
-    draw.text((margin_x + 115, margin_y + 15), title, fill=(180, 180, 180), font=title_font)
+    title_font = get_font(17)
+    draw.text((margin_x + 105, margin_y + 14), title, fill=(190, 190, 190), font=title_font)
 
-    # Render Teks + Kursor Blok
-    display_text = visible_text + ("█" if show_cursor else " ")
+    # Gabungkan semua baris untuk ditampilkan (dengan auto-scroll jika penuh)
+    max_text_width = win_w - 50
+    line_height = int(font_size * 1.38)
+    max_visible_lines = (win_h - header_h - 50) // line_height
+
+    rendered_entries = []  # list of (text, color)
+    for line_text, is_cmd in history_lines:
+        color = colors["cmd"] if is_cmd else colors["out"]
+        for w_line in wrap_single_line(line_text, font, max_text_width, draw):
+            rendered_entries.append((w_line, color))
+
+    if active_cmd_text is not None:
+        cursor_char = "█" if show_cursor else " "
+        wrapped_active = wrap_single_line(active_cmd_text + cursor_char, font, max_text_width, draw)
+        for idx, w_line in enumerate(wrapped_active):
+            rendered_entries.append((w_line, colors["cmd"]))
+    else:
+        # Kursor idle di baris baru
+        if show_cursor:
+            rendered_entries.append(("█", colors["cmd"]))
+
+    # Ambil baris terakhir jika melebihi tinggi window (efek terminal scroll ke atas)
+    visible_entries = rendered_entries[-max_visible_lines:]
+
+    curr_y = margin_y + header_h + 25
     text_x = margin_x + 25
-    text_y = margin_y + header_h + 30
-    line_spacing = int(font_size * 0.35)
-
-    draw.multiline_text((text_x, text_y), display_text, fill=colors["text"], font=font, spacing=line_spacing)
+    for text_line, line_color in visible_entries:
+        draw.text((text_x, curr_y), text_line, fill=line_color, font=font)
+        curr_y += line_height
 
     return np.array(img)
 
-# --- GENERATOR AUDIO SINTETIS KETIKAN ---
-def generate_typing_audio(duration, char_timestamps):
+# --- GENERATOR SUARA KEYBOARD MEKANIKAL SINKRON ---
+def build_synchronized_audio(total_frames, fps, sound_events):
+    """
+    sound_events: list of tuple (frame_index, event_type)
+    event_type: 'key' (suara ketik ringan) atau 'enter' (suara tombol enter lebih berat)
+    """
     sample_rate = 44100
+    total_samples = int((total_frames / fps) * sample_rate) + sample_rate
+    audio_buffer = np.zeros(total_samples, dtype=np.float32)
+
+    rng = np.random.default_rng(42)
+
+    # Pre-generate sampel suara 1x ketikan (22ms)
+    key_len = int(0.022 * sample_rate)
+    t_key = np.linspace(0, 0.022, key_len)
+    noise_key = rng.normal(0, 1, key_len)
+    # Kombinasi transient klik mekanikal + body thock
+    key_sound = (noise_key * np.exp(-t_key * 220) * 0.45) + (np.sin(2 * np.pi * 240 * t_key) * np.exp(-t_key * 180) * 0.35)
+
+    # Pre-generate sampel suara tombol ENTER (40ms, lebih dalam)
+    ent_len = int(0.040 * sample_rate)
+    t_ent = np.linspace(0, 0.040, ent_len)
+    noise_ent = rng.normal(0, 1, ent_len)
+    enter_sound = (noise_ent * np.exp(-t_ent * 140) * 0.55) + (np.sin(2 * np.pi * 150 * t_ent) * np.exp(-t_ent * 110) * 0.5)
+
+    for frame_idx, ev_type in sound_events:
+        start_sample = int((frame_idx / fps) * sample_rate)
+        snd = enter_sound if ev_type == "enter" else key_sound
+        end_sample = min(start_sample + len(snd), total_samples)
+        if start_sample < total_samples:
+            audio_buffer[start_sample:end_sample] += snd[:end_sample - start_sample]
+
+    # Normalisasi agar tidak clipping/pecah
+    max_val = np.max(np.abs(audio_buffer))
+    if max_val > 0:
+        audio_buffer = (audio_buffer / max_val) * 0.85
+
+    duration = total_frames / fps
     def make_frame(t):
-        # t bisa berupa array numpy
         t_arr = np.atleast_1d(t)
-        out = np.zeros_like(t_arr)
-        for ts in char_timestamps:
-            # Suara klik pendek 15ms setiap karakter muncul
-            mask = (t_arr >= ts) & (t_arr < ts + 0.015)
-            if np.any(mask):
-                local_t = t_arr[mask] - ts
-                # Gelombang klik mekanikal (kombinasi frekuensi + decay cepat)
-                click = np.sin(2 * np.pi * 800 * local_t) * np.exp(-local_t * 250) * 0.3
-                out[mask] += click
-        return np.column_stack([out, out]) if out.ndim == 1 else out
+        indices = np.clip((t_arr * sample_rate).astype(int), 0, total_samples - 1)
+        vals = audio_buffer[indices]
+        return np.column_stack([vals, vals]) if vals.ndim == 1 else vals
 
     return AudioClip(make_frame, duration=duration, fps=sample_rate)
 
-# --- TOMBOL GENERATE ---
-if st.button("🎬 Generate Video Status WA", type="primary", use_container_width=True):
-    if not user_text.strip():
-        st.warning("Teks tidak boleh kosong!")
+# --- PROSES GENERATE VIDEO ---
+if st.button("🎬 Generate Video System Terminal", type="primary", use_container_width=True):
+    if not user_script.strip():
+        st.warning("Teks skenario tidak boleh kosong!")
     else:
-        with st.spinner("Sedang merender frame & menyusun video MP4..."):
-            width, height = 720, 1280  # Resolusi HD 9:16 ideal untuk WA Status
+        with st.spinner("Merender urutan eksekusi sistem & sinkronisasi audio..."):
+            width, height = 720, 1280
             font = get_font(font_size)
-            
-            # Dummy draw untuk menghitung wrapping teks
-            dummy_img = Image.new("RGB", (width, height))
-            dummy_draw = ImageDraw.Draw(dummy_img)
-            wrapped_text = wrap_text(user_text, font, width - 140, dummy_draw)
 
             frames = []
-            char_timestamps = []
-            
-            total_chars = len(wrapped_text)
+            sound_events = []  # Menyimpan (nomor_frame, tipe_suara)
+            history_lines = [] # Menyimpan baris yang sudah selesai dieksekusi
+
             frames_per_char = max(1, round(fps / typing_speed))
-            
-            current_time = 0.0
-            dt = 1.0 / fps
 
-            # 1. Fase Kursor Berkedip Awal (1 detik)
-            for f in range(fps):
-                cursor_on = (f // (fps // 3)) % 2 == 0
-                frames.append(render_frame("", cursor_on, font, colors, window_title, width, height))
-                current_time += dt
+            def add_frame(active_cmd, cursor_on):
+                frames.append(
+                    render_terminal_frame(
+                        history_lines, active_cmd, cursor_on, font, colors, window_title, width, height
+                    )
+                )
 
-            # 2. Fase Mengetik Karakter demi Karakter
-            for i in range(1, total_chars + 1):
-                sub_text = wrapped_text[:i]
-                last_char = wrapped_text[i - 1]
-                
-                if last_char not in [' ', '\n']:
-                    char_timestamps.append(current_time)
+            # 1. Kursor siap di awal (0.6 detik)
+            for f in range(int(fps * 0.6)):
+                add_frame("", (f // 5) % 2 == 0)
 
-                # Jeda ekstra sedikit jika menemui baris baru atau titik
-                extra_hold = int(fps * 0.25) if last_char in ['\n', '.'] else 0
-                hold_frames = frames_per_char + extra_hold
+            raw_lines = user_script.split('\n')
 
-                for f in range(hold_frames):
-                    cursor_on = True if f < frames_per_char else ((f // (fps // 3)) % 2 == 0)
-                    frames.append(render_frame(sub_text, cursor_on, font, colors, window_title, width, height))
-                    current_time += dt
+            for line in raw_lines:
+                stripped = line.strip()
 
-            # 3. Fase Kursor Berkedip Akhir (2.5 detik agar enak dibaca di WA)
-            end_frames = int(fps * 2.5)
-            for f in range(end_frames):
-                cursor_on = (f // (fps // 3)) % 2 == 0
-                frames.append(render_frame(wrapped_text, cursor_on, font, colors, window_title, width, height))
-                current_time += dt
+                # Baris kosong -> langsung tambah spasi antar blok
+                if stripped == "":
+                    history_lines.append(("", False))
+                    for _ in range(3):
+                        add_frame(None, True)
+                    continue
 
-            # Buat Clip Video
+                # CEK APAKAH PERINTAH (diawali $ atau >) ATAU OUTPUT SISTEM
+                is_command = stripped.startswith("$") or stripped.startswith(">")
+
+                if is_command:
+                    # Ketik huruf demi huruf
+                    for char_idx in range(1, len(line) + 1):
+                        partial_cmd = line[:char_idx]
+                        last_char = line[char_idx - 1]
+
+                        # Trigger suara tepat di frame pertama karakter ini muncul
+                        if last_char != " ":
+                            sound_events.append((len(frames), "key"))
+
+                        for _ in range(frames_per_char):
+                            add_frame(partial_cmd, True)
+
+                    # Jeda sesaat sebelum menekan Enter + Bunyi tombol ENTER
+                    for _ in range(3):
+                        add_frame(line, True)
+
+                    sound_events.append((len(frames), "enter"))
+                    history_lines.append((line, True))
+
+                    # Jeda eksekusi sistem setelah Enter ditekan (0.35 detik)
+                    for f in range(int(fps * 0.35)):
+                        add_frame(None, (f // 4) % 2 == 0)
+
+                elif stripped == "[LOADING]":
+                    # Animasi progress bar sistem 0% -> 100%
+                    steps = 10
+                    for step in range(1, steps + 1):
+                        bar = "█" * (step * 2) + "░" * ((steps - step) * 2)
+                        pct = step * 10
+                        prog_text = f"[{bar}] {pct}%"
+                        temp_history = history_lines + [(prog_text, False)]
+                        for _ in range(2):
+                            frames.append(
+                                render_terminal_frame(
+                                    temp_history, None, False, font, colors, window_title, width, height
+                                )
+                            )
+                    history_lines.append(("[████████████████████] 100%", False))
+
+                else:
+                    # OUTPUT SISTEM: Muncul instan 1 baris penuh seketika!
+                    history_lines.append((line, False))
+                    # Tahan 0.22 detik agar terbaca seperti log terminal yang mengalir cepat
+                    for _ in range(int(fps * 0.22)):
+                        add_frame(None, False)
+
+            # 3. Kursor berkedip di akhir video (2.5 detik)
+            for f in range(int(fps * 2.5)):
+                add_frame(None, (f // 6) % 2 == 0)
+
+            # Gabungkan frame menjadi video
             clip = ImageSequenceClip(frames, fps=fps)
 
-            if add_sound and char_timestamps:
-                audio = generate_typing_audio(clip.duration, char_timestamps)
-                clip = clip.set_audio(audio)
+            if add_sound and sound_events:
+                audio_clip = build_synchronized_audio(len(frames), fps, sound_events)
+                clip = clip.set_audio(audio_clip)
 
-            # Simpan ke file sementara dengan codec standar WhatsApp (H.264 + AAC)
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
             temp_path = temp_file.name
             temp_file.close()
@@ -221,17 +337,14 @@ if st.button("🎬 Generate Video Status WA", type="primary", use_container_widt
                 logger=None
             )
 
-            st.success("✅ Video berhasil dibuat!")
-            
-            # Tampilkan Preview
+            st.success("✅ Video selesai dirender dengan audio-visual tersinkronisasi!")
             st.video(temp_path)
 
-            # Tombol Download
             with open(temp_path, "rb") as file:
                 st.download_button(
                     label="⬇️ Download Video MP4 (Siap Upload WA)",
                     data=file,
-                    file_name="status_wa_coder.mp4",
+                    file_name="status_wa_system.mp4",
                     mime="video/mp4",
                     use_container_width=True
                 )
