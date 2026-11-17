@@ -1,5 +1,5 @@
 import streamlit as st
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import tempfile
 import subprocess
@@ -10,49 +10,62 @@ import os
 st.set_page_config(page_title="Authentic Programmer IDE - WA Status", page_icon="👨‍💻", layout="centered")
 
 st.title("👨‍💻 Authentic Dark Programmer Video Generator")
-st.markdown("Tulis kalimat biasa → sistem menyusunnya menjadi **struktur koding IDE asli** lengkap dengan *syntax highlighting* dan eksekusi terminal di bagian bawah.")
+st.markdown("Pilih **Gaya & Tema Visual** yang berbeda total: dari VS Code, Matrix Hacker CRT, Cyberpunk, hingga Neovim Zen.")
 
 # --- SIDEBAR PENGATURAN ---
-st.sidebar.header("🖥️ Tampilan IDE & Warna")
+st.sidebar.header("🎨 Gaya & Tema Visual")
 
 ide_theme = st.sidebar.selectbox(
-    "Tema IDE Developer",
+    "Pilih Tema (Beda Gaya & Warna)",
     [
-        "VS Code Dark+ (Klasik Biru/Kuning/Hijau)",
-        "Tokyo Night Storm (Ungu/Cyan/Biru Malam)",
-        "Dracula Official (Pink/Ungu/Hijau Neon)",
-        "GitHub Dark Dimmed (Abu Gelap/Oranye/Biru)"
+        "1. VS Code Dark+ (Biru Modern)",
+        "2. Matrix Hacker CRT (Hitam - Hijau Neon)",
+        "3. Cyberpunk Neon (Ungu Gelap - Pink/Cyan)",
+        "4. Neovim Zen Mode (Minimalis Full Kode)",
+        "5. Amber Mainframe (Hitam - Emas Retro)"
     ]
 )
 
 THEMES = {
-    "VS Code Dark+ (Klasik Biru/Kuning/Hijau)": {
-        "bg": (20, 20, 20), "sidebar": (28, 28, 28), "tab": (37, 37, 38),
-        "border": (55, 55, 58), "status_bar": (0, 122, 204), "status_txt": (255, 255, 255),
+    "1. VS Code Dark+ (Biru Modern)": {
+        "style": "ide", "scanline": False,
+        "bg": (18, 20, 26), "sidebar": (26, 29, 38), "tab": (38, 42, 54),
+        "border": (55, 62, 80), "status_bar": (0, 122, 204), "status_txt": (255, 255, 255),
         "kw": (86, 156, 214), "ctrl": (197, 134, 192), "func": (220, 220, 170),
         "str": (206, 145, 120), "var": (156, 220, 254), "cmt": (106, 153, 85),
-        "norm": (212, 212, 212), "term_ok": (78, 201, 176), "term_err": (244, 71, 71)
+        "norm": (220, 225, 235), "term_ok": (78, 201, 176), "term_err": (244, 71, 71)
     },
-    "Tokyo Night Storm (Ungu/Cyan/Biru Malam)": {
-        "bg": (22, 24, 33), "sidebar": (18, 20, 28), "tab": (31, 35, 53),
-        "border": (48, 55, 82), "status_bar": (61, 89, 161), "status_txt": (220, 230, 255),
+    "2. Matrix Hacker CRT (Hitam - Hijau Neon)": {
+        "style": "ide", "scanline": True,
+        "bg": (2, 10, 4), "sidebar": (4, 18, 7), "tab": (8, 32, 12),
+        "border": (0, 140, 45), "status_bar": (0, 180, 55), "status_txt": (0, 15, 5),
+        "kw": (0, 255, 90), "ctrl": (120, 255, 150), "func": (0, 220, 75),
+        "str": (180, 255, 195), "var": (50, 255, 110), "cmt": (25, 115, 45),
+        "norm": (140, 240, 160), "term_ok": (0, 255, 90), "term_err": (255, 65, 65)
+    },
+    "3. Cyberpunk Neon (Ungu Gelap - Pink/Cyan)": {
+        "style": "ide", "scanline": False,
+        "bg": (24, 10, 42), "sidebar": (34, 14, 58), "tab": (52, 20, 85),
+        "border": (140, 40, 180), "status_bar": (255, 42, 109), "status_txt": (255, 255, 255),
+        "kw": (255, 42, 109), "ctrl": (5, 217, 232), "func": (254, 222, 93),
+        "str": (5, 217, 232), "var": (255, 130, 220), "cmt": (135, 90, 175),
+        "norm": (240, 230, 255), "term_ok": (5, 217, 232), "term_err": (255, 42, 109)
+    },
+    "4. Neovim Zen Mode (Minimalis Full Kode)": {
+        "style": "zen", "scanline": False,
+        "bg": (12, 14, 18), "sidebar": (18, 21, 28), "tab": (28, 32, 42),
+        "border": (60, 70, 90), "status_bar": (122, 162, 247), "status_txt": (12, 14, 18),
         "kw": (187, 154, 247), "ctrl": (247, 118, 142), "func": (122, 162, 247),
         "str": (158, 206, 106), "var": (125, 207, 255), "cmt": (86, 95, 137),
-        "norm": (192, 202, 245), "term_ok": (115, 218, 202), "term_err": (247, 118, 142)
+        "norm": (215, 222, 240), "term_ok": (115, 218, 202), "term_err": (247, 118, 142)
     },
-    "Dracula Official (Pink/Ungu/Hijau Neon)": {
-        "bg": (30, 31, 41), "sidebar": (25, 26, 33), "tab": (40, 42, 54),
-        "border": (68, 71, 90), "status_bar": (98, 114, 164), "status_txt": (248, 248, 242),
-        "kw": (255, 121, 198), "ctrl": (189, 147, 249), "func": (80, 250, 123),
-        "str": (241, 250, 140), "var": (139, 233, 253), "cmt": (98, 114, 164),
-        "norm": (248, 248, 242), "term_ok": (80, 250, 123), "term_err": (255, 85, 85)
-    },
-    "GitHub Dark Dimmed (Abu Gelap/Oranye/Biru)": {
-        "bg": (24, 28, 34), "sidebar": (19, 23, 28), "tab": (34, 39, 46),
-        "border": (55, 62, 71), "status_bar": (49, 109, 202), "status_txt": (240, 246, 252),
-        "kw": (244, 112, 103), "ctrl": (220, 168, 255), "func": (108, 182, 255),
-        "str": (150, 208, 255), "var": (246, 157, 80), "cmt": (118, 131, 144),
-        "norm": (173, 186, 199), "term_ok": (87, 171, 90), "term_err": (229, 83, 75)
+    "5. Amber Mainframe (Hitam - Emas Retro)": {
+        "style": "ide", "scanline": True,
+        "bg": (16, 10, 2), "sidebar": (26, 16, 4), "tab": (42, 26, 6),
+        "border": (160, 100, 15), "status_bar": (235, 155, 20), "status_txt": (15, 10, 0),
+        "kw": (255, 195, 50), "ctrl": (255, 140, 25), "func": (255, 225, 110),
+        "str": (255, 210, 90), "var": (245, 175, 45), "cmt": (135, 85, 15),
+        "norm": (240, 185, 65), "term_ok": (255, 215, 75), "term_err": (255, 75, 45)
     }
 }
 th = THEMES[ide_theme]
@@ -122,8 +135,6 @@ def detect_outcome(text, choice):
         return "error"
     return "success"
 
-# --- KONVERSI KALIMAT KE TOKEN KODE ASLI (SYNTAX HIGHLIGHTING PER KATA) ---
-# Setiap baris berupa list of tuple: [(teks_token, tipe_warna), ...]
 def build_structured_code(raw_text, lang, outcome):
     lines = [l.strip() for l in raw_text.strip().split('\n') if l.strip()]
     if not lines:
@@ -202,7 +213,7 @@ def build_structured_code(raw_text, lang, outcome):
         else:
             term_logs.append(("[OK] Execution finished cleanly (Code 0)", "term_ok"))
 
-    else:  # C++
+    else:
         code_lines.append([("#include", "ctrl"), (" <iostream>", "str")])
         code_lines.append([("#include", "ctrl"), (" <reality.hpp>", "str")])
         code_lines.append([("", "norm")])
@@ -243,7 +254,7 @@ def get_font(size, bold=False):
             return ImageFont.truetype(p, size)
     return ImageFont.load_default()
 
-# --- RENDERER FRAME IDE AUTHENTIC (540x960) ---
+# --- RENDERER FRAME (MENDUKUNG MODE IDE PENUH & NEOVIM ZEN MODE) ---
 def render_ide_frame(
     completed_lines, active_tokens, active_char_count, cursor_on,
     terminal_lines, file_name, lang_label, th, w=540, h=960
@@ -251,68 +262,73 @@ def render_ide_frame(
     img = Image.new("RGB", (w, h), color=th["bg"])
     draw = ImageDraw.Draw(img)
 
-    # 1. Top Window Bar (macOS / Linux IDE Header)
-    top_h = 34
-    draw.rectangle([0, 0, w, top_h], fill=th["sidebar"])
-    draw.ellipse([12, 11, 22, 21], fill=(255, 95, 86))
-    draw.ellipse([28, 11, 38, 21], fill=(255, 189, 46))
-    draw.ellipse([44, 11, 54, 21], fill=(39, 201, 63))
+    is_zen = (th["style"] == "zen")
 
     f_ui = get_font(11)
     f_tab = get_font(12, bold=True)
-    f_code = get_font(14)
-    f_num = get_font(12)
+    f_code = get_font(16 if is_zen else 14)
+    f_num = get_font(13 if is_zen else 12)
 
-    title_str = f"dark-workspace — {file_name}"
-    tbbox = draw.textbbox((0, 0), title_str, font=f_ui)
-    draw.text(((w - (tbbox[2] - tbbox[0])) // 2, 10), title_str, fill=th["cmt"], font=f_ui)
+    top_h = 34
+    status_h = 26
+    term_h = 185
 
-    # 2. Activity Bar (Kiri) + File Explorer Sidebar
-    act_w = 34
-    side_w = 112
-    term_h = 195
-    status_h = 24
-    editor_top = top_h + 28
-    editor_bottom = h - term_h - status_h
+    if is_zen:
+        # --- GAYA NEOVIM ZEN: FULL SCREEN CODE TANPA SIDEBAR ---
+        draw.rectangle([0, 0, w, top_h], fill=th["sidebar"])
+        draw.text((16, 10), f"NVIM v0.10  —  ~/dark-core/src/{file_name}", fill=th["cmt"], font=f_ui)
 
-    draw.rectangle([0, top_h, act_w, h - status_h], fill=th["sidebar"])
-    draw.line([(act_w, top_h), (act_w, h - status_h)], fill=th["border"], width=1)
+        ed_left = 0
+        editor_top = top_h + 6
+        editor_bottom = h - term_h - status_h
+        gutter_x = 16
+        text_start_x = 52
+        line_h = 25
+    else:
+        # --- GAYA FULL IDE (ACTIVITY BAR + SIDEBAR EXPLORER + TAB) ---
+        draw.rectangle([0, 0, w, top_h], fill=th["sidebar"])
+        draw.ellipse([12, 11, 22, 21], fill=(255, 95, 86))
+        draw.ellipse([28, 11, 38, 21], fill=(255, 189, 46))
+        draw.ellipse([44, 11, 54, 21], fill=(39, 201, 63))
 
-    # Ikon minimal di Activity Bar
-    draw.rectangle([9, top_h + 14, 24, top_h + 30], outline=th["norm"], width=1)
-    draw.ellipse([10, top_h + 46, 23, top_h + 59], outline=th["cmt"], width=1)
-    draw.line([(10, top_h + 78), (24, top_h + 78)], fill=th["cmt"], width=2)
-    draw.line([(10, top_h + 84), (20, top_h + 84)], fill=th["cmt"], width=2)
+        title_str = f"dark-workspace — {file_name}"
+        tbbox = draw.textbbox((0, 0), title_str, font=f_ui)
+        draw.text(((w - (tbbox[2] - tbbox[0])) // 2, 10), title_str, fill=th["cmt"], font=f_ui)
 
-    # Sidebar File Tree
-    draw.rectangle([act_w + 1, top_h, act_w + side_w, h - status_h], fill=th["sidebar"])
-    draw.line([(act_w + side_w, top_h), (act_w + side_w, h - status_h)], fill=th["border"], width=1)
+        act_w = 34
+        side_w = 112
+        editor_top = top_h + 28
+        editor_bottom = h - term_h - status_h
 
-    draw.text((act_w + 10, top_h + 10), "EXPLORER", fill=th["cmt"], font=f_ui)
-    draw.text((act_w + 10, top_h + 32), "▾ DARK-CORE", fill=th["norm"], font=f_ui)
-    draw.text((act_w + 16, top_h + 52), "▾ src", fill=th["cmt"], font=f_ui)
-    # Highlight file aktif
-    draw.rectangle([act_w + 1, top_h + 68, act_w + side_w - 1, top_h + 88], fill=th["tab"])
-    draw.text((act_w + 22, top_h + 72), f"• {file_name}", fill=th["var"], font=f_ui)
-    draw.text((act_w + 22, top_h + 94), "  config.json", fill=th["cmt"], font=f_ui)
-    draw.text((act_w + 16, top_h + 114), "  .gitignore", fill=th["cmt"], font=f_ui)
+        draw.rectangle([0, top_h, act_w, h - status_h], fill=th["sidebar"])
+        draw.line([(act_w, top_h), (act_w, h - status_h)], fill=th["border"], width=1)
+        draw.rectangle([9, top_h + 14, 24, top_h + 30], outline=th["norm"], width=1)
+        draw.ellipse([10, top_h + 46, 23, top_h + 59], outline=th["cmt"], width=1)
 
-    # 3. Editor Tab Bar
-    ed_left = act_w + side_w + 1
-    draw.rectangle([ed_left, top_h, w, editor_top], fill=th["sidebar"])
-    draw.rectangle([ed_left, top_h, ed_left + 135, editor_top], fill=th["bg"])
-    draw.line([(ed_left, top_h), (ed_left + 135, top_h)], fill=th["status_bar"], width=2)
-    draw.text((ed_left + 12, top_h + 7), f"{file_name}  ×", fill=th["norm"], font=f_tab)
+        draw.rectangle([act_w + 1, top_h, act_w + side_w, h - status_h], fill=th["sidebar"])
+        draw.line([(act_w + side_w, top_h), (act_w + side_w, h - status_h)], fill=th["border"], width=1)
 
-    # Breadcrumb path
-    draw.text((ed_left + 12, editor_top + 6), f"src > {file_name} > processState()", fill=th["cmt"], font=f_ui)
+        draw.text((act_w + 10, top_h + 10), "EXPLORER", fill=th["cmt"], font=f_ui)
+        draw.text((act_w + 10, top_h + 32), "▾ DARK-CORE", fill=th["norm"], font=f_ui)
+        draw.text((act_w + 16, top_h + 52), "▾ src", fill=th["cmt"], font=f_ui)
+        draw.rectangle([act_w + 1, top_h + 68, act_w + side_w - 1, top_h + 88], fill=th["tab"])
+        draw.text((act_w + 22, top_h + 72), f"• {file_name}", fill=th["var"], font=f_ui)
+        draw.text((act_w + 22, top_h + 94), "  config.json", fill=th["cmt"], font=f_ui)
 
-    # 4. Area Koding (Syntax Highlighting Token-by-Token + Word Wrap)
-    code_start_y = editor_top + 28
-    gutter_x = ed_left + 8
-    text_start_x = ed_left + 36
-    max_code_w = w - text_start_x - 10
-    line_h = 22
+        ed_left = act_w + side_w + 1
+        draw.rectangle([ed_left, top_h, w, editor_top], fill=th["sidebar"])
+        draw.rectangle([ed_left, top_h, ed_left + 135, editor_top], fill=th["bg"])
+        draw.line([(ed_left, top_h), (ed_left + 135, top_h)], fill=th["status_bar"], width=2)
+        draw.text((ed_left + 12, top_h + 7), f"{file_name}  ×", fill=th["norm"], font=f_tab)
+        draw.text((ed_left + 12, editor_top + 6), f"src > {file_name} > processState()", fill=th["cmt"], font=f_ui)
+
+        gutter_x = ed_left + 8
+        text_start_x = ed_left + 36
+        line_h = 22
+
+    # --- AREA KODING ---
+    code_start_y = editor_top + (16 if is_zen else 28)
+    max_code_w = w - text_start_x - 14
 
     def draw_token_line(line_tokens, line_num, start_y, max_chars=None, show_cur=False):
         draw.text((gutter_x, start_y + 1), f"{line_num:2d}", fill=th["cmt"], font=f_num)
@@ -331,69 +347,75 @@ def render_ide_frame(
 
             col = th.get(tok_role, th["norm"])
 
-            # Render per karakter agar wrap presisi di area editor sempit
             for ch in piece:
                 ch_w = draw.textbbox((0, 0), ch, font=f_code)[2]
                 if cur_x + ch_w > text_start_x + max_code_w:
-                    cur_x = text_start_x + 14  # indentasi wrap
+                    cur_x = text_start_x + 16
                     cur_y += line_h
                 draw.text((cur_x, cur_y), ch, fill=col, font=f_code)
                 cur_x += ch_w
                 chars_drawn += 1
 
         if show_cur and cursor_on:
-            draw.rectangle([cur_x + 1, cur_y + 2, cur_x + 8, cur_y + 16], fill=th["var"])
+            draw.rectangle([cur_x + 1, cur_y + 2, cur_x + 9, cur_y + (18 if is_zen else 16)], fill=th["var"])
 
         return cur_y + line_h
 
     cy = code_start_y
     ln = 1
     for t_line in completed_lines:
-        if cy > editor_bottom - 20:
+        if cy > editor_bottom - 22:
             break
         cy = draw_token_line(t_line, ln, cy)
         ln += 1
 
-    if active_tokens is not None and cy <= editor_bottom - 20:
+    if active_tokens is not None and cy <= editor_bottom - 22:
         cy = draw_token_line(active_tokens, ln, cy, max_chars=active_char_count, show_cur=True)
 
-    # 5. Panel Terminal Bawah (Split Screen)
+    # --- PANEL TERMINAL BAWAH ---
     term_top = editor_bottom
     draw.rectangle([ed_left, term_top, w, h - status_h], fill=th["sidebar"])
     draw.line([(ed_left, term_top), (w, term_top)], fill=th["border"], width=1)
 
-    draw.text((ed_left + 12, term_top + 7), "PROBLEMS   OUTPUT   TERMINAL", fill=th["norm"], font=f_ui)
-    draw.line([(ed_left + 132, term_top + 22), (ed_left + 188, term_top + 22)], fill=th["status_bar"], width=2)
+    term_header = ":terminal  [zsh]" if is_zen else "PROBLEMS   OUTPUT   TERMINAL"
+    draw.text((ed_left + 14, term_top + 7), term_header, fill=th["norm"], font=f_ui)
+    if not is_zen:
+        draw.line([(ed_left + 132, term_top + 22), (ed_left + 188, term_top + 22)], fill=th["status_bar"], width=2)
 
     ty = term_top + 32
     for t_txt, t_role in terminal_lines:
         t_col = th.get(t_role, th["norm"])
-        # Wrap sederhana jika log terminal panjang
         words = t_txt.split(" ")
         cur_l = ""
         for wd in words:
             test = cur_l + (" " if cur_l else "") + wd
-            if draw.textbbox((0, 0), test, font=f_ui)[2] <= (w - ed_left - 24):
+            if draw.textbbox((0, 0), test, font=f_ui)[2] <= (w - ed_left - 26):
                 cur_l = test
             else:
-                draw.text((ed_left + 12, ty), cur_l, fill=t_col, font=f_ui)
+                draw.text((ed_left + 14, ty), cur_l, fill=t_col, font=f_ui)
                 ty += 18
                 cur_l = wd
         if cur_l:
-            draw.text((ed_left + 12, ty), cur_l, fill=t_col, font=f_ui)
+            draw.text((ed_left + 14, ty), cur_l, fill=t_col, font=f_ui)
             ty += 20
 
-    # 6. Status Bar Bawah IDE
+    # --- STATUS BAR BAWAH ---
     sb_top = h - status_h
     draw.rectangle([0, sb_top, w, h], fill=th["status_bar"])
-    draw.text((10, sb_top + 5), f"⎇ main*   0 errors, 0 warnings", fill=th["status_txt"], font=f_ui)
-    right_info = f"Ln {ln}, Col {active_char_count + 1}   UTF-8   {lang_label}"
+    left_status = f" INSERT | ⎇ main  {file_name}" if is_zen else "⎇ main*   0 errors, 0 warnings"
+    draw.text((10, sb_top + 6), left_status, fill=th["status_txt"], font=f_ui)
+    right_info = f"Ln {ln}, Col {active_char_count + 1}   {lang_label}"
     rb = draw.textbbox((0, 0), right_info, font=f_ui)
-    draw.text((w - (rb[2] - rb[0]) - 10, sb_top + 5), right_info, fill=th["status_txt"], font=f_ui)
+    draw.text((w - (rb[2] - rb[0]) - 10, sb_top + 6), right_info, fill=th["status_txt"], font=f_ui)
+
+    # --- EFEK CRT SCANLINE KHUSUS TEMA MATRIX & AMBER ---
+    if th["scanline"]:
+        arr = np.array(img, dtype=np.uint8)
+        arr[::3, :, :] = (arr[::3, :, :] * 0.55).astype(np.uint8)
+        return arr.tobytes()
 
     return img.tobytes()
 
-# --- GENERATOR AUDIO: SUARA KETIK MECHANICAL + PIANO MALAM ---
 def generate_ide_audio_wav(duration, wav_path, key_frames, fps, use_keys=True, use_piano=True):
     sample_rate = 22050
     total_samples = max(sample_rate, int(duration * sample_rate))
@@ -461,11 +483,10 @@ if st.button("🎬 Generate Video Coding IDE", type="primary", use_container_wid
         file_name = lang_choice.split("(")[-1].rstrip(")")
         lang_label = lang_choice.split(" (")[0]
 
-        with st.spinner("Menyusun kode di IDE & menjalankan terminal..."):
+        with st.spinner(f"Merender tema {ide_theme}..."):
             w, h = 540, 960
             frames_per_char = max(1, round(fps / typing_speed))
 
-            # Hitung frame & catat posisi ketikan suara
             key_frames = []
             sim_frame = int(fps * 0.3)
 
@@ -513,11 +534,9 @@ if st.button("🎬 Generate Video Coding IDE", type="primary", use_container_wid
 
             try:
                 completed = []
-                # 1. Pembukaan singkat kursor siap di IDE
                 for f in range(int(fps * 0.3)):
                     proc.stdin.write(render_ide_frame(completed, [], 0, (f // 4) % 2 == 0, [], file_name, lang_label, th, w, h))
 
-                # 2. Proses mengetik baris demi baris dengan syntax highlighting
                 for idx, tokens in enumerate(code_lines):
                     full_str = "".join(t[0] for t in tokens)
                     if idx < 2:
@@ -536,7 +555,6 @@ if st.button("🎬 Generate Video Coding IDE", type="primary", use_container_wid
                         for _ in range(int(fps * 0.15)):
                             proc.stdin.write(render_ide_frame(completed, None, 0, False, [], file_name, lang_label, th, w, h))
 
-                # 3. Eksekusi Terminal di Panel Bawah (muncul bertahap)
                 shown_term = []
                 for t_idx, t_entry in enumerate(term_logs):
                     shown_term.append(t_entry)
