@@ -1,521 +1,416 @@
 import streamlit as st
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import numpy as np
-from moviepy.editor import ImageSequenceClip, AudioClip
+from moviepy.editor import ImageSequenceClip, AudioClip, AudioFileClip, CompositeAudioClip
 import tempfile
 import os
 
-st.set_page_config(page_title="WA Status System Terminal", page_icon="💻", layout="centered")
+st.set_page_config(page_title="Dark Programmer Cinematic - WA Status", page_icon="🌧️", layout="centered")
 
-st.title("💻 WA Status System Terminal Generator")
-st.markdown("Cukup tulis **kata-kata biasa**, sistem otomatis mengubahnya menjadi skrip terminal programmer.")
+st.title("🌧️ Dark Programmer Cinematic Generator")
+st.markdown("Konsep malam, hujan halus, terminal dingin, klimaks tipografi penuh, dan melodi piano ambient tenang.")
 
 # --- SIDEBAR PENGATURAN ---
-st.sidebar.header("🎨 Tema & Gaya Visual")
+st.sidebar.header("🎬 Pengaturan Sinematik")
 
-THEMES = {
-    "Hacker Matrix (Hitam - Hijau Neon)": {
-        "canvas": (5, 8, 5), "bg": (10, 14, 10), "cmd": (0, 255, 65),
-        "out": (165, 235, 175), "header": (20, 30, 20), "border": (0, 200, 50),
-        "grid": (12, 24, 12), "success_bg": (0, 65, 25), "success_fg": (50, 255, 110)
+cinematic_palette = st.sidebar.selectbox(
+    "Nuansa Warna Dingin",
+    [
+        "Midnight Rain (Hitam Pekat - Biru Es)",
+        "Cold Slate (Abu Malam - Cyan Dingin)",
+        "Obsidian Frost (Gelap - Perak/Biru)"
+    ]
+)
+
+PALETTES = {
+    "Midnight Rain (Hitam Pekat - Biru Es)": {
+        "bg": (5, 7, 11), "win": (10, 14, 22), "primary": (165, 215, 255),
+        "accent": (95, 175, 255), "muted": (70, 95, 125), "rain": (45, 70, 100)
     },
-    "Tokyo Night (Biru Malam - Neon)": {
-        "canvas": (15, 16, 24), "bg": (26, 27, 38), "cmd": (122, 162, 247),
-        "out": (158, 206, 106), "header": (36, 40, 59), "border": (187, 154, 247),
-        "grid": (22, 24, 36), "success_bg": (35, 75, 50), "success_fg": (158, 206, 106)
+    "Cold Slate (Abu Malam - Cyan Dingin)": {
+        "bg": (8, 10, 14), "win": (15, 19, 26), "primary": (190, 235, 245),
+        "accent": (80, 210, 225), "muted": (80, 105, 115), "rain": (40, 75, 85)
     },
-    "Dracula Pro (Ungu Gelap - Pink/Cyan)": {
-        "canvas": (24, 25, 34), "bg": (40, 42, 54), "cmd": (255, 121, 198),
-        "out": (139, 233, 253), "header": (52, 55, 70), "border": (189, 147, 249),
-        "grid": (32, 34, 46), "success_bg": (30, 80, 55), "success_fg": (80, 250, 123)
-    },
-    "Synthwave '84 (Retro Ungu - Kuning/Pink)": {
-        "canvas": (20, 12, 36), "bg": (38, 20, 71), "cmd": (254, 222, 93),
-        "out": (255, 126, 219), "header": (54, 28, 99), "border": (54, 249, 246),
-        "grid": (32, 18, 56), "success_bg": (15, 85, 85), "success_fg": (54, 249, 246)
-    },
-    "Monokai Pro (Abu Gelap - Kuning/Oranye)": {
-        "canvas": (25, 24, 26), "bg": (45, 42, 46), "cmd": (255, 216, 102),
-        "out": (169, 220, 118), "header": (64, 60, 65), "border": (252, 152, 103),
-        "grid": (35, 33, 36), "success_bg": (45, 75, 35), "success_fg": (169, 220, 118)
-    },
-    "Nord Frost (Biru Arktik - Es)": {
-        "canvas": (29, 33, 41), "bg": (46, 52, 64), "cmd": (136, 192, 208),
-        "out": (216, 222, 233), "header": (59, 66, 82), "border": (129, 161, 193),
-        "grid": (36, 41, 51), "success_bg": (45, 80, 65), "success_fg": (163, 190, 140)
-    },
-    "macOS Zsh Clean (Hitam - Putih/Hijau)": {
-        "canvas": (18, 18, 20), "bg": (28, 28, 30), "cmd": (50, 215, 75),
-        "out": (242, 242, 247), "header": (44, 44, 46), "border": (99, 99, 102),
-        "grid": (24, 24, 26), "success_bg": (20, 75, 35), "success_fg": (50, 215, 75)
-    },
-    "Amber Mainframe CRT (Hitam - Emas)": {
-        "canvas": (12, 8, 2), "bg": (20, 14, 4), "cmd": (255, 185, 35),
-        "out": (215, 140, 25), "header": (38, 26, 8), "border": (220, 145, 20),
-        "grid": (26, 18, 5), "success_bg": (75, 50, 5), "success_fg": (255, 210, 60)
+    "Obsidian Frost (Gelap - Perak/Biru)": {
+        "bg": (6, 6, 9), "win": (13, 14, 20), "primary": (215, 225, 240),
+        "accent": (125, 155, 235), "muted": (85, 92, 115), "rain": (50, 58, 80)
     }
 }
+pal = PALETTES[cinematic_palette]
 
-theme_name = st.sidebar.selectbox("Pilih Tema Terminal", list(THEMES.keys()), index=1)
-colors = THEMES[theme_name]
+typing_speed = st.sidebar.slider("Kecepatan Ketik Perlahan (Karakter/Detik)", min_value=8, max_value=20, value=13)
+rain_intensity = st.sidebar.slider("Intensitas Hujan Malam", min_value=0, max_value=80, value=35)
+audio_mode = st.sidebar.selectbox(
+    "Musik Latar",
+    [
+        "Piano Ambient + Hujan Malam (Otomatis)",
+        "Hanya Piano Ambient Tenang",
+        "Upload Musik Piano Sendiri (.mp3/.wav)"
+    ]
+)
 
-bg_pattern = st.sidebar.selectbox("Efek Background Layar", ["Tech Grid Halus", "Polos Minimalis", "Scanline Monitor CRT"])
-window_mode = st.sidebar.selectbox("Ukuran Window Terminal", ["Tall (Memanjang 9:16)", "Compact (Pas di Tengah)"])
-
-st.sidebar.header("⚙️ Pengaturan Kecepatan")
-font_size = st.sidebar.slider("Ukuran Font", min_value=22, max_value=38, value=26)
-typing_speed = st.sidebar.slider("Kecepatan Ketik (Karakter/Detik)", min_value=12, max_value=28, value=18)
-end_hold = st.sidebar.slider("Durasi Tahan Ending (Detik)", min_value=0.8, max_value=2.5, value=1.4, step=0.1)
-add_sound = st.sidebar.checkbox("Suara Mechanical Keyboard + Audio Ending", value=True)
+uploaded_audio = None
+if audio_mode == "Upload Musik Piano Sendiri (.mp3/.wav)":
+    uploaded_audio = st.sidebar.file_uploader("Pilih file audio piano:", type=["mp3", "wav"])
 
 fps = 30
 
-# --- INPUT UTAMA ---
-default_quote = """REST MODE ACTIVATED.
-
+# --- INPUT TEKS ---
+default_text = """SYSTEM:// CORE_TERMINAL
+REST MODE ACTIVATED.
 Analyzing reality...
-
 Not everything is real.
-
 Some things are just well-written illusions.
-
 Some promises are nothing but empty code.
-
 So, stop trying to understand everything.
-
 Take a break.
-
 Let the world run its own program.
+SESSION PAUSED...
+No more attempts. No more explanations."""
 
-SESSION PAUSED..."""
-
-st.subheader("1. Tulis Kata-Kata Anda")
-raw_quotes = st.text_area(
-    "Ketik kalimat biasa (tiap baris baru akan diketik berurutan):",
-    value=default_quote,
-    height=230
+st.subheader("Naskah Terminal")
+user_text = st.text_area(
+    "Edit teks sesuai kebutuhan (baris ke-4 otomatis menjadi klimaks layar penuh):",
+    value=default_text,
+    height=260
 )
 
-col1, col2 = st.columns(2)
-with col1:
-    ending_choice = st.selectbox(
-        "2. Hasil Akhir (Ending):",
-        [
-            "Auto-Deteksi dari Kata-Kata",
-            "PAUSED / STANDBY (Kuning)",
-            "SUCCESS (Hijau)",
-            "ERROR (Merah)"
+climax_line_input = st.text_input(
+    "Teks Klimaks Layar Penuh:",
+    value="NOT EVERYTHING IS REAL."
+)
+
+# --- LOAD FONT ---
+def get_font(size, bold=False):
+    if bold:
+        paths = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf",
+            "arialbd.ttf"
         ]
-    )
-with col2:
-    script_style = st.selectbox(
-        "3. Gaya Pembungkus Sistem:",
-        [
-            "Clean Terminal (Langsung Ketik Teks)",
-            "Diagnostik & Perbaikan (repair.sh)",
-            "Eksekusi Pikiran (mindset.exe)",
-            "Server Status (systemctl)"
+    else:
+        paths = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
+            "arial.ttf"
         ]
-    )
-
-# --- FUNGSI DETEKSI SENTIMEN ---
-def detect_outcome(text, choice):
-    if choice.startswith("PAUSED"):
-        return "paused"
-    if choice.startswith("SUCCESS"):
-        return "success"
-    if choice.startswith("ERROR"):
-        return "error"
-
-    low = text.lower()
-    paused_words = ["pause", "paused", "rest mode", "break", "standby", "sleep", "istirahat", "jeda", "berhenti sejenak"]
-    error_words = ["error", "fail", "failed", "fatal", "crash", "gagal", "rusak", "hancur", "hilang", "putus", "kecewa", "sakit", "mati"]
-
-    if any(w in low for w in paused_words):
-        return "paused"
-    if any(w in low for w in error_words):
-        return "error"
-    return "success"
-
-# --- KONVERSI KATA BIASA MENJADI SKENARIO TERMINAL OTOMATIS ---
-def build_terminal_script(quotes_text, outcome, style):
-    raw_lines = [l.strip() for l in quotes_text.strip().split('\n') if l.strip()]
-    if not raw_lines:
-        return ""
-
-    if style == "Clean Terminal (Langsung Ketik Teks)":
-        formatted = []
-        for idx, l in enumerate(raw_lines):
-            low = l.lower()
-            # Baris status sistem seperti "Analyzing reality..." atau "REST MODE..." muncul sebagai log sistem
-            if idx == 0 and l.isupper():
-                formatted.append(f"[SYS] {l}")
-            elif low.endswith("...") and ("analyzing" in low or "loading" in low or "scanning" in low):
-                formatted.append(l)
-                formatted.append("[LOADING]")
-            elif idx == len(raw_lines) - 1 and l.isupper():
-                formatted.append(f"[STATE] {l}")
-            else:
-                formatted.append(f"> {l}")
-        return "\n".join(formatted)
-
-    script_blocks = []
-    if style == "Diagnostik & Perbaikan (repair.sh)":
-        script_blocks.append("$ ./system_check.sh --run")
-        script_blocks.append("[LOADING]")
-        for l in raw_lines:
-            script_blocks.append(f"> {l}")
-    elif style == "Eksekusi Pikiran (mindset.exe)":
-        script_blocks.append("$ run mindset.exe --compile")
-        script_blocks.append("[LOADING]")
-        for l in raw_lines:
-            script_blocks.append(f"> {l}")
-    elif style == "Server Status (systemctl)":
-        script_blocks.append("$ systemctl status reality.service")
-        for l in raw_lines:
-            script_blocks.append(f"> {l}")
-        script_blocks.append("[LOADING]")
-
-    return "\n".join(script_blocks)
-
-# --- FUNGSI LOAD FONT ---
-def get_font(size):
-    font_paths = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
-        "arial.ttf"
-    ]
-    for path in font_paths:
-        if os.path.exists(path):
-            return ImageFont.truetype(path, size)
+    for p in paths:
+        if os.path.exists(p):
+            return ImageFont.truetype(p, size)
     return ImageFont.load_default()
 
-# --- FUNGSI WRAP PER BARIS ---
-def wrap_single_line(line, font, max_width, draw):
-    if not line:
-        return [""]
-    words = line.split(' ')
-    wrapped = []
-    current = ""
-    for word in words:
-        test = current + (" " if current else "") + word
-        if draw.textbbox((0, 0), test, font=font)[2] <= max_width:
-            current = test
+def wrap_text(text, font, max_w, draw):
+    words = text.split(' ')
+    lines, cur = [], ""
+    for w in words:
+        test = cur + (" " if cur else "") + w
+        if draw.textbbox((0, 0), test, font=font)[2] <= max_w:
+            cur = test
         else:
-            if current:
-                wrapped.append(current)
-            while draw.textbbox((0, 0), word, font=font)[2] > max_width:
-                for i in range(1, len(word)):
-                    if draw.textbbox((0, 0), word[:i], font=font)[2] > max_width:
-                        wrapped.append(word[:i-1])
-                        word = word[i-1:]
-                        break
-            current = word
-    if current:
-        wrapped.append(current)
-    return wrapped
+            if cur:
+                lines.append(cur)
+            cur = w
+    if cur:
+        lines.append(cur)
+    return lines
 
-# --- RENDER FRAME TERMINAL ---
-def render_terminal_frame(
-    history_lines, active_cmd_text, show_cursor, font, colors,
-    title, mode, pattern, banner_text=None, banner_type="success", width=720, height=1280
-):
-    img = Image.new("RGB", (width, height), color=colors["canvas"])
-    draw = ImageDraw.Draw(img)
+# --- EFEK HUJAN MALAM HALUS ---
+def draw_night_rain(draw, width, height, frame_idx, count, color):
+    if count <= 0:
+        return
+    rng = np.random.default_rng(101)
+    xs = rng.integers(0, width, size=count)
+    y_offsets = rng.integers(0, height, size=count)
+    speeds = rng.integers(14, 26, size=count)
+    lengths = rng.integers(18, 42, size=count)
 
-    if pattern == "Tech Grid Halus":
-        step = 36
-        for x in range(0, width, step):
-            draw.line([(x, 0), (x, height)], fill=colors["grid"], width=1)
-        for y in range(0, height, step):
-            draw.line([(0, y), (width, y)], fill=colors["grid"], width=1)
-    elif pattern == "Scanline Monitor CRT":
-        for y in range(0, height, 4):
-            draw.line([(0, y), (width, y)], fill=colors["grid"], width=2)
+    for i in range(count):
+        x = int(xs[i])
+        y = int((y_offsets[i] + frame_idx * speeds[i]) % height)
+        l = int(lengths[i])
+        draw.line([(x, y), (x - 2, y + l)], fill=color, width=1)
 
-    margin_x = 36
-    margin_y = 135 if mode == "Tall (Memanjang 9:16)" else 220
-    win_w = width - (margin_x * 2)
-    win_h = height - (margin_y * 2)
-
-    draw.rectangle([margin_x + 8, margin_y + 10, margin_x + win_w + 8, margin_y + win_h + 10], fill=(0, 0, 0))
-
-    if banner_text:
-        if banner_type == "error":
-            active_border = (255, 65, 75)
-        elif banner_type == "paused":
-            active_border = (255, 195, 45)
-        else:
-            active_border = colors["success_fg"]
-    else:
-        active_border = colors["border"]
-
-    draw.rectangle([margin_x, margin_y, margin_x + win_w, margin_y + win_h], fill=colors["bg"], outline=active_border, width=2)
-
-    header_h = 46
-    draw.rectangle([margin_x, margin_y, margin_x + win_w, margin_y + header_h], fill=colors["header"])
-    btn_y = margin_y + 23
-    draw.ellipse([margin_x + 18, btn_y - 7, margin_x + 32, btn_y + 7], fill=(255, 95, 86))
-    draw.ellipse([margin_x + 44, btn_y - 7, margin_x + 58, btn_y + 7], fill=(255, 189, 46))
-    draw.ellipse([margin_x + 70, btn_y - 7, margin_x + 84, btn_y + 7], fill=(39, 201, 63))
-
-    title_font = get_font(16)
-    draw.text((margin_x + 102, margin_y + 14), title, fill=(200, 200, 200), font=title_font)
-
-    banner_space = 82 if banner_text else 0
-    max_text_width = win_w - 44
-    line_height = int(font_size * 1.38)
-    max_visible_lines = (win_h - header_h - 40 - banner_space) // line_height
-
-    rendered_entries = []
-    for line_text, line_kind in history_lines:
-        if line_kind == "muted":
-            color = colors["border"]
-        elif line_kind == "cmd":
-            color = colors["cmd"]
-        elif line_kind == "err_out":
-            color = (255, 85, 95)
-        elif line_kind == "warn_out":
-            color = (255, 195, 45)
-        elif line_kind == "ok_out":
-            color = colors["success_fg"]
-        else:
-            color = colors["out"]
-
-        for w_line in wrap_single_line(line_text, font, max_text_width, draw):
-            rendered_entries.append((w_line, color))
-
-    if banner_text is None:
-        if active_cmd_text is not None:
-            cursor_char = "█" if show_cursor else " "
-            wrapped_active = wrap_single_line(active_cmd_text + cursor_char, font, max_text_width, draw)
-            for w_line in wrapped_active:
-                rendered_entries.append((w_line, colors["cmd"]))
-        else:
-            prompt_cursor = "$ █" if show_cursor else "$ "
-            rendered_entries.append((prompt_cursor, colors["cmd"]))
-
-    visible_entries = rendered_entries[-max_visible_lines:]
-
-    curr_y = margin_y + header_h + 20
-    text_x = margin_x + 22
-    for text_line, line_color in visible_entries:
-        draw.text((text_x, curr_y), text_line, fill=line_color, font=font)
-        curr_y += line_height
-
-    if banner_text:
-        box_margin = 20
-        box_h = 56
-        box_y1 = margin_y + win_h - box_h - 18
-        box_y2 = box_y1 + box_h
-        box_x1 = margin_x + box_margin
-        box_x2 = margin_x + win_w - box_margin
-
-        if banner_type == "error":
-            b_bg = (75, 12, 18)
-            b_fg = (255, 75, 85)
-        elif banner_type == "paused":
-            b_bg = (68, 50, 10)
-            b_fg = (255, 200, 50)
-        else:
-            b_bg = colors["success_bg"]
-            b_fg = colors["success_fg"]
-
-        draw.rectangle([box_x1, box_y1, box_x2, box_y2], fill=b_bg, outline=b_fg, width=2)
-
-        banner_font_size = 21
-        b_font = get_font(banner_font_size)
-        while draw.textbbox((0, 0), banner_text, font=b_font)[2] > (box_x2 - box_x1 - 24) and banner_font_size > 13:
-            banner_font_size -= 1
-            b_font = get_font(banner_font_size)
-
-        bbox = draw.textbbox((0, 0), banner_text, font=b_font)
-        tw = bbox[2] - bbox[0]
-        th = bbox[3] - bbox[1]
-        tx = box_x1 + ((box_x2 - box_x1) - tw) // 2
-        ty = box_y1 + ((box_y2 - box_y1) - th) // 2 - 2
-        draw.text((tx, ty), banner_text, fill=b_fg, font=b_font)
-
-    return np.array(img)
-
-# --- GENERATOR SUARA KEYBOARD + ENDING AUDIO ---
-def build_synchronized_audio(total_frames, fps, sound_events):
+# --- GENERATOR AUDIO PIANO AMBIENT + HUJAN MALAM ---
+def generate_cinematic_piano_audio(duration, include_rain=True):
     sample_rate = 44100
-    total_samples = int((total_frames / fps) * sample_rate) + sample_rate
-    audio_buffer = np.zeros(total_samples, dtype=np.float32)
+    total_samples = int(duration * sample_rate)
+    t = np.linspace(0, duration, total_samples, dtype=np.float32)
+    audio = np.zeros(total_samples, dtype=np.float32)
 
-    rng = np.random.default_rng(42)
+    # 1. Atmosfer Hujan Malam Lembut (Filtered Brown/Pink-ish Noise)
+    if include_rain:
+        rng = np.random.default_rng(7)
+        white = rng.normal(0, 1, total_samples).astype(np.float32)
+        # Moving average sederhana untuk meredam frekuensi tinggi agar terdengar seperti rintik hujan jauh
+        kernel = np.ones(18, dtype=np.float32) / 18.0
+        rain = np.convolve(white, kernel, mode='same')
+        rain = rain / (np.max(np.abs(rain)) + 1e-6)
+        audio += rain * 0.14
 
-    key_len = int(0.022 * sample_rate)
-    t_key = np.linspace(0, 0.022, key_len)
-    noise_key = rng.normal(0, 1, key_len)
-    key_sound = (noise_key * np.exp(-t_key * 220) * 0.45) + (np.sin(2 * np.pi * 240 * t_key) * np.exp(-t_key * 180) * 0.35)
+    # 2. Melodi Piano Ambient Minor Pelan (Am - F - C - G)
+    # Frekuensi nada piano lembut (Hz)
+    notes_sequence = [
+        (0.0, 220.00, 2.8),   # A3
+        (0.9, 329.63, 2.5),   # E4
+        (1.8, 493.88, 2.8),   # B4
+        (2.8, 523.25, 3.0),   # C5
+        (4.2, 174.61, 3.0),   # F3
+        (5.1, 261.63, 2.6),   # C4
+        (6.0, 440.00, 3.0),   # A4
+        (7.5, 130.81, 3.2),   # C3
+        (8.4, 392.00, 2.8),   # G4
+        (9.5, 493.88, 3.2),   # B4
+        (11.0, 196.00, 3.2),  # G3
+        (12.0, 329.63, 3.5),  # E4
+        (13.5, 220.00, 4.0),  # A3 (resolve pelan)
+    ]
 
-    ent_len = int(0.040 * sample_rate)
-    t_ent = np.linspace(0, 0.040, ent_len)
-    noise_ent = rng.normal(0, 1, ent_len)
-    enter_sound = (noise_ent * np.exp(-t_ent * 140) * 0.55) + (np.sin(2 * np.pi * 150 * t_ent) * np.exp(-t_ent * 110) * 0.5)
+    for start_t, freq, note_dur in notes_sequence:
+        if start_t >= duration:
+            break
+        start_idx = int(start_t * sample_rate)
+        end_idx = min(total_samples, int((start_t + note_dur) * sample_rate))
+        local_t = np.linspace(0, (end_idx - start_idx) / sample_rate, end_idx - start_idx, dtype=np.float32)
 
-    # Chime Sukses (C6 -> G6)
-    chime_len = int(0.28 * sample_rate)
-    t_ch = np.linspace(0, 0.28, chime_len)
-    part1 = np.where(t_ch < 0.11, np.sin(2 * np.pi * 1046.5 * t_ch) * np.exp(-t_ch * 12), 0)
-    part2 = np.where(t_ch >= 0.11, np.sin(2 * np.pi * 1567.98 * (t_ch - 0.11)) * np.exp(-(t_ch - 0.11) * 10), 0)
-    chime_sound = (part1 + part2) * 0.55
+        # Envelope piano: attack lembut (40ms) + decay panjang hangat
+        attack = np.minimum(1.0, local_t / 0.04)
+        decay = np.exp(-local_t * 1.15)
+        env = attack * decay
 
-    # Nada Standby / Paused (G5 -> D5 lembut)
-    pause_len = int(0.32 * sample_rate)
-    t_pa = np.linspace(0, 0.32, pause_len)
-    p1 = np.where(t_pa < 0.14, np.sin(2 * np.pi * 783.99 * t_pa) * np.exp(-t_pa * 10), 0)
-    p2 = np.where(t_pa >= 0.14, np.sin(2 * np.pi * 587.33 * (t_pa - 0.14)) * np.exp(-(t_pa - 0.14) * 8), 0)
-    pause_sound = (p1 + p2) * 0.50
+        # Harmonik piano hangat (fundamental + oktaf lembut + fifth tipis)
+        tone = (
+            np.sin(2 * np.pi * freq * local_t) * 0.65
+            + np.sin(2 * np.pi * (freq * 2) * local_t) * 0.22 * np.exp(-local_t * 1.8)
+            + np.sin(2 * np.pi * (freq * 3) * local_t) * 0.08 * np.exp(-local_t * 2.5)
+        )
+        audio[start_idx:end_idx] += tone * env * 0.35
 
-    # Error Buzzer
-    err_len = int(0.32 * sample_rate)
-    t_er = np.linspace(0, 0.32, err_len)
-    beep1 = np.where(t_er < 0.13, np.sign(np.sin(2 * np.pi * 190 * t_er)) * np.exp(-t_er * 10), 0)
-    beep2 = np.where((t_er >= 0.16) & (t_er < 0.32), np.sign(np.sin(2 * np.pi * 145 * (t_er - 0.16))) * np.exp(-(t_er - 0.16) * 8), 0)
-    error_sound = (beep1 + beep2) * 0.35
+    # Fade in 0.8s & Fade out 1.5s agar transisi sinematik mulus
+    fade_in_samples = min(total_samples, int(0.8 * sample_rate))
+    fade_out_samples = min(total_samples, int(1.5 * sample_rate))
+    audio[:fade_in_samples] *= np.linspace(0, 1, fade_in_samples, dtype=np.float32)
+    audio[-fade_out_samples:] *= np.linspace(1, 0, fade_out_samples, dtype=np.float32)
 
-    for frame_idx, ev_type in sound_events:
-        start_sample = int((frame_idx / fps) * sample_rate)
-        if ev_type == "enter":
-            snd = enter_sound
-        elif ev_type == "success":
-            snd = chime_sound
-        elif ev_type == "paused":
-            snd = pause_sound
-        elif ev_type == "error":
-            snd = error_sound
-        else:
-            snd = key_sound
+    max_v = np.max(np.abs(audio))
+    if max_v > 0:
+        audio = (audio / max_v) * 0.82
 
-        end_sample = min(start_sample + len(snd), total_samples)
-        if start_sample < total_samples:
-            audio_buffer[start_sample:end_sample] += snd[:end_sample - start_sample]
-
-    max_val = np.max(np.abs(audio_buffer))
-    if max_val > 0:
-        audio_buffer = (audio_buffer / max_val) * 0.85
-
-    duration = total_frames / fps
-    def make_frame(t):
-        t_arr = np.atleast_1d(t)
-        indices = np.clip((t_arr * sample_rate).astype(int), 0, total_samples - 1)
-        vals = audio_buffer[indices]
-        return np.column_stack([vals, vals]) if vals.ndim == 1 else vals
+    def make_frame(ts):
+        ts_arr = np.atleast_1d(ts)
+        idx = np.clip((ts_arr * sample_rate).astype(int), 0, total_samples - 1)
+        v = audio[idx]
+        return np.column_stack([v, v]) if v.ndim == 1 else v
 
     return AudioClip(make_frame, duration=duration, fps=sample_rate)
 
-# --- PROSES GENERATE VIDEO ---
-if st.button("🎬 Generate Video Status WA", type="primary", use_container_width=True):
-    if not raw_quotes.strip():
-        st.warning("Tulis minimal 1 baris kata-kata terlebih dahulu!")
+# --- RENDERER TIAP BABAK SINEMATIK ---
+def render_boot_frame(frame_idx, progress_alpha, pal, rain_count, w=720, h=1280):
+    img = Image.new("RGB", (w, h), color=(0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw_night_rain(draw, w, h, frame_idx, rain_count // 2, pal["rain"])
+
+    font_boot = get_font(26, bold=True)
+    font_sub = get_font(18, bold=False)
+
+    text_main = "SYSTEM BOOTING..."
+    c_main = tuple(int(c * progress_alpha) for c in pal["accent"])
+    c_sub = tuple(int(c * progress_alpha) for c in pal["muted"])
+
+    bbox = draw.textbbox((0, 0), text_main, font=font_boot)
+    tw = bbox[2] - bbox[0]
+    draw.text(((w - tw) // 2, h // 2 - 20), text_main, fill=c_main, font=font_boot)
+
+    sub_text = "[ cold_kernel :: midnight_session ]"
+    sbbox = draw.textbbox((0, 0), sub_text, font=font_sub)
+    stw = sbbox[2] - sbbox[0]
+    draw.text(((w - stw) // 2, h // 2 + 24), sub_text, fill=c_sub, font=font_sub)
+
+    return np.array(img)
+
+def render_terminal_stage(frame_idx, history, active_line, cursor_on, pal, rain_count, w=720, h=1280):
+    img = Image.new("RGB", (w, h), color=pal["bg"])
+    draw = ImageDraw.Draw(img)
+    draw_night_rain(draw, w, h, frame_idx, rain_count, pal["rain"])
+
+    mx, my = 42, 180
+    ww, wh = w - (mx * 2), h - (my * 2)
+
+    # Window terminal minimalis gelap
+    draw.rectangle([mx, my, mx + ww, my + wh], fill=pal["win"], outline=pal["muted"], width=1)
+    draw.line([(mx, my + 44), (mx + ww, my + 44)], fill=pal["muted"], width=1)
+
+    hdr_font = get_font(16)
+    draw.text((mx + 20, my + 14), "SYSTEM:// CORE_TERMINAL  [02:14 AM]", fill=pal["muted"], font=hdr_font)
+
+    body_font = get_font(25)
+    max_tw = ww - 48
+    line_h = 38
+    curr_y = my + 72
+
+    for text_item, kind in history:
+        col = pal["accent"] if kind == "sys" else pal["primary"]
+        for wl in wrap_text(text_item, body_font, max_tw, draw):
+            draw.text((mx + 24, curr_y), wl, fill=col, font=body_font)
+            curr_y += line_h
+        curr_y += 8
+
+    if active_line is not None:
+        disp = active_line + ("_" if cursor_on else " ")
+        for wl in wrap_text(disp, body_font, max_tw, draw):
+            draw.text((mx + 24, curr_y), wl, fill=pal["primary"], font=body_font)
+            curr_y += line_h
+
+    return np.array(img)
+
+def render_climax_frame(frame_idx, climax_text, intensity, pal, rain_count, w=720, h=1280):
+    # Layar penuh dramatis untuk klimaks
+    base = Image.new("RGB", (w, h), color=(3, 5, 9))
+    draw = ImageDraw.Draw(base)
+    draw_night_rain(draw, w, h, frame_idx, rain_count, pal["rain"])
+
+    # Garis tipis sinematik atas & bawah
+    line_col = tuple(int(c * intensity) for c in pal["muted"])
+    draw.line([(90, h // 2 - 120), (w - 90, h // 2 - 120)], fill=line_col, width=1)
+    draw.line([(90, h // 2 + 120), (w - 90, h // 2 + 120)], fill=line_col, width=1)
+
+    c_font = get_font(38, bold=True)
+    wrapped = wrap_text(climax_text.upper(), c_font, w - 110, draw)
+
+    # Layer glow halus di belakang teks klimaks
+    glow_layer = Image.new("RGB", (w, h), color=(0, 0, 0))
+    g_draw = ImageDraw.Draw(glow_layer)
+
+    total_h = len(wrapped) * 52
+    start_y = (h - total_h) // 2
+
+    glow_col = tuple(int(c * 0.55 * intensity) for c in pal["accent"])
+    text_col = tuple(int(c * intensity) for c in pal["primary"])
+
+    for idx, line in enumerate(wrapped):
+        bbox = g_draw.textbbox((0, 0), line, font=c_font)
+        tw = bbox[2] - bbox[0]
+        tx = (w - tw) // 2
+        ty = start_y + idx * 52
+        g_draw.text((tx, ty), line, fill=glow_col, font=c_font)
+
+    glow_layer = glow_layer.filter(ImageFilter.GaussianBlur(radius=8))
+    combined = Image.fromarray(np.clip(np.array(base, dtype=np.int16) + np.array(glow_layer, dtype=np.int16), 0, 255).astype(np.uint8))
+
+    final_draw = ImageDraw.Draw(combined)
+    for idx, line in enumerate(wrapped):
+        bbox = final_draw.textbbox((0, 0), line, font=c_font)
+        tw = bbox[2] - bbox[0]
+        tx = (w - tw) // 2
+        ty = start_y + idx * 52
+        final_draw.text((tx, ty), line, fill=text_col, font=c_font)
+
+    return np.array(combined)
+
+def render_ending_paused_frame(frame_idx, fade_alpha, pal, rain_count, w=720, h=1280):
+    img = Image.new("RGB", (w, h), color=(3, 4, 7))
+    draw = ImageDraw.Draw(img)
+    draw_night_rain(draw, w, h, frame_idx, int(rain_count * fade_alpha), pal["rain"])
+
+    p_font = get_font(32, bold=True)
+    s_font = get_font(19, bold=False)
+
+    main_col = tuple(int(c * fade_alpha) for c in pal["accent"])
+    sub_col = tuple(int(c * fade_alpha) for c in pal["primary"])
+
+    t1 = "SESSION PAUSED..."
+    b1 = draw.textbbox((0, 0), t1, font=p_font)
+    draw.text(((w - (b1[2] - b1[0])) // 2, h // 2 - 35), t1, fill=main_col, font=p_font)
+
+    t2 = "No more attempts. No more explanations."
+    b2 = draw.textbbox((0, 0), t2, font=s_font)
+    draw.text(((w - (b2[2] - b2[0])) // 2, h // 2 + 18), t2, fill=sub_col, font=s_font)
+
+    return np.array(img)
+
+# --- TOMBOL GENERATE ---
+if st.button("🎬 Render Video Dark Cinematic", type="primary", use_container_width=True):
+    lines = [l.strip() for l in user_text.strip().split('\n') if l.strip()]
+    if not lines:
+        st.warning("Teks tidak boleh kosong.")
     else:
-        outcome = detect_outcome(raw_quotes, ending_choice)
-        generated_script = build_terminal_script(raw_quotes, outcome, script_style)
-
-        with st.spinner("Merender video terminal..."):
-            width, height = 720, 1280
-            font = get_font(font_size)
-
+        with st.spinner("Merender adegan sinematik & menyusun audio piano ambient..."):
+            w, h = 720, 1280
             frames = []
-            sound_events = []
-            history_lines = [("Kernel 6.8.0-sys #1 SMP [tty1]", "muted")]
-
             frames_per_char = max(1, round(fps / typing_speed))
-            window_title = "root@reality:~# bash rest_mode.sh"
 
-            def add_frame(active_cmd, cursor_on, banner=None):
-                frames.append(
-                    render_terminal_frame(
-                        history_lines, active_cmd, cursor_on, font, colors,
-                        window_title, window_mode, bg_pattern, banner, outcome, width, height
-                    )
-                )
+            # --- BABAK 1: PEMBUKAAN (SYSTEM BOOTING...) - 1.8 detik ---
+            boot_total = int(fps * 1.8)
+            for f in range(boot_total):
+                alpha = min(1.0, f / (fps * 0.6))
+                frames.append(render_boot_frame(len(frames), alpha, pal, rain_intensity, w, h))
 
-            for f in range(int(fps * 0.2)):
-                add_frame("", True)
+            # --- BABAK 2: BAGIAN TENGAH (BARIS KODE & REFLEKSI) ---
+            history = []
+            climax_clean = climax_line_input.strip().lower().rstrip(".")
 
-            for line in generated_script.split('\n'):
-                stripped = line.strip()
-                is_command = stripped.startswith("$") or stripped.startswith(">")
+            for line in lines:
+                low = line.lower().rstrip(".")
 
-                if is_command:
-                    for char_idx in range(1, len(line) + 1):
-                        partial_cmd = line[:char_idx]
-                        if line[char_idx - 1] != " ":
-                            sound_events.append((len(frames), "key"))
-                        for _ in range(frames_per_char):
-                            add_frame(partial_cmd, True)
+                # Lewati baris penutup akhir karena akan masuk ke Babak 4
+                if "session paused" in low or "no more attempts" in low:
+                    continue
 
-                    for _ in range(2):
-                        add_frame(line, True)
+                # Jika menyentuh kalimat klimaks -> masuk Babak 3 (Klimaks Layar Penuh)
+                if climax_clean and climax_clean in low:
+                    climax_frames = int(fps * 2.4)
+                    for cf in range(climax_frames):
+                        # Fade in cepat lalu tahan
+                        inten = min(1.0, cf / (fps * 0.35))
+                        frames.append(render_climax_frame(len(frames), line, inten, pal, rain_intensity, w, h))
+                    history.append((line, "sys"))
+                    continue
 
-                    sound_events.append((len(frames), "enter"))
-                    history_lines.append((line, "cmd"))
-
-                    for f in range(int(fps * 0.22)):
-                        add_frame(None, (f // 4) % 2 == 0)
-
-                elif stripped == "[LOADING]":
-                    for step in range(1, 11):
-                        bar = "█" * (step * 2) + "░" * ((10 - step) * 2)
-                        prog_text = f"[{bar}] {step * 10}%"
-                        temp_history = history_lines + [(prog_text, "out")]
-                        for _ in range(2):
-                            frames.append(
-                                render_terminal_frame(
-                                    temp_history, None, False, font, colors,
-                                    window_title, window_mode, bg_pattern, None, outcome, width, height
-                                )
-                            )
-                    history_lines.append(("[████████████████████] 100%", "out"))
-
+                # Baris status sistem muncul instan dengan jeda hening
+                if line.startswith("SYSTEM://") or line.isupper() or line.endswith("..."):
+                    history.append((line, "sys"))
+                    for _ in range(int(fps * 0.55)):
+                        frames.append(render_terminal_stage(len(frames), history, None, False, pal, rain_intensity, w, h))
                 else:
-                    low_line = stripped.lower()
-                    if any(tag in low_line for tag in ["[error]", "[fatal]", "[failed]"]):
-                        kind = "err_out"
-                    elif any(tag in low_line for tag in ["[sys]", "[state]"]):
-                        kind = "warn_out"
-                    elif any(tag in low_line for tag in ["[ok]", "[success]", "[active]"]):
-                        kind = "ok_out"
-                    else:
-                        kind = "out"
+                    # Kalimat reflektif diketik perlahan satu per satu
+                    for ci in range(1, len(line) + 1):
+                        sub = line[:ci]
+                        for _ in range(frames_per_char):
+                            frames.append(render_terminal_stage(len(frames), history, sub, True, pal, rain_intensity, w, h))
+                    history.append((line, "msg"))
+                    # Jeda emosional antar kalimat (0.45 detik)
+                    for jf in range(int(fps * 0.45)):
+                        frames.append(render_terminal_stage(len(frames), history, None, (jf // 6) % 2 == 0, pal, rain_intensity, w, h))
 
-                    history_lines.append((line, kind))
-                    for _ in range(int(fps * 0.22)):
-                        add_frame(None, False)
-
-            # Banner Akhir sesuai konteks
-            if outcome == "error":
-                final_banner = "✖ CRITICAL ERROR // SYSTEM HALTED"
-                sound_events.append((len(frames), "error"))
-            elif outcome == "paused":
-                final_banner = "⏸ SESSION PAUSED // REST MODE ACTIVE"
-                sound_events.append((len(frames), "paused"))
-            else:
-                final_banner = "✔ SYSTEM REPAIRED // ALL SERVICES OK"
-                sound_events.append((len(frames), "success"))
-
-            end_frames = max(15, int(fps * end_hold))
-            for f in range(end_frames):
-                show_b = final_banner if (f >= 6 or f % 2 == 0) else None
-                add_frame(None, False, banner=show_b)
+            # --- BABAK 4: PENUTUP (SESSION PAUSED... + FADE TO BLACK) - 3.2 detik ---
+            end_total = int(fps * 3.2)
+            for ef in range(end_total):
+                # Tahan terang 1.8 detik, lalu perlahan gelap (fade out) 1.4 detik
+                if ef < int(fps * 1.8):
+                    alpha = 1.0
+                else:
+                    alpha = max(0.0, 1.0 - (ef - int(fps * 1.8)) / (fps * 1.4))
+                frames.append(render_ending_paused_frame(len(frames), alpha, pal, rain_intensity, w, h))
 
             clip = ImageSequenceClip(frames, fps=fps)
 
-            if add_sound and sound_events:
-                audio_clip = build_synchronized_audio(len(frames), fps, sound_events)
-                clip = clip.set_audio(audio_clip)
+            # Audio Latar
+            if audio_mode == "Upload Musik Piano Sendiri (.mp3/.wav)" and uploaded_audio is not None:
+                tmp_aud = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+                tmp_aud.write(uploaded_audio.read())
+                tmp_aud.close()
+                user_aud_clip = AudioFileClip(tmp_aud.name).subclip(0, clip.duration)
+                clip = clip.set_audio(user_aud_clip)
+            else:
+                with_rain = (audio_mode == "Piano Ambient + Hujan Malam (Otomatis)")
+                piano_clip = generate_cinematic_piano_audio(clip.duration, include_rain=with_rain)
+                clip = clip.set_audio(piano_clip)
 
-            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
-            temp_path = temp_file.name
-            temp_file.close()
+            temp_mp4 = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+            mp4_path = temp_mp4.name
+            temp_mp4.close()
 
             clip.write_videofile(
-                temp_path,
+                mp4_path,
                 codec="libx264",
                 audio_codec="aac",
                 ffmpeg_params=["-pix_fmt", "yuv420p"],
@@ -523,14 +418,14 @@ if st.button("🎬 Generate Video Status WA", type="primary", use_container_widt
                 logger=None
             )
 
-            st.success(f"✅ Video selesai! (Ending: **{outcome.upper()}**)")
-            st.video(temp_path)
+            st.success("✅ Video Dark Programmer Cinematic siap!")
+            st.video(mp4_path)
 
-            with open(temp_path, "rb") as file:
+            with open(mp4_path, "rb") as f:
                 st.download_button(
-                    label="⬇️ Download Video MP4",
-                    data=file,
-                    file_name=f"status_wa_{outcome}.mp4",
+                    label="⬇️ Download Video Status WA (MP4)",
+                    data=f,
+                    file_name="rest_mode_cinematic.mp4",
                     mime="video/mp4",
                     use_container_width=True
                 )
