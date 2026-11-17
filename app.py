@@ -8,7 +8,7 @@ import os
 st.set_page_config(page_title="WA Status System Terminal", page_icon="💻", layout="centered")
 
 st.title("💻 WA Status System Terminal Generator")
-st.markdown("Ending status (**SUCCESS** hijau atau **ERROR** merah) otomatis menyesuaikan konteks kata-kata di skenario Anda.")
+st.markdown("Cukup tulis **kata-kata biasa**, sistem otomatis mengubahnya menjadi skrip terminal programmer.")
 
 # --- SIDEBAR PENGATURAN ---
 st.sidebar.header("🎨 Tema & Gaya Visual")
@@ -62,77 +62,103 @@ colors = THEMES[theme_name]
 bg_pattern = st.sidebar.selectbox("Efek Background Layar", ["Tech Grid Halus", "Polos Minimalis", "Scanline Monitor CRT"])
 window_mode = st.sidebar.selectbox("Ukuran Window Terminal", ["Compact (Pas di Tengah)", "Tall (Memanjang 9:16)"])
 
-st.sidebar.header("🏁 Mode Status Akhir (Ending)")
-ending_mode = st.sidebar.selectbox(
-    "Deteksi Status Akhir",
-    [
-        "Auto-Deteksi dari Kata-Kata (Smart)",
-        "Selalu SUCCESS (Hijau)",
-        "Selalu ERROR (Merah)"
-    ]
-)
-
-custom_success_text = st.sidebar.text_input("Teks Jika SUCCESS", value="✔ SYSTEM REPAIRED // ALL SERVICES OK")
-custom_error_text = st.sidebar.text_input("Teks Jika ERROR", value="✖ CRITICAL ERROR // SYSTEM HALTED")
-
-st.sidebar.header("⚙️ Pengaturan Eksekusi")
-window_title = st.sidebar.text_input("Judul Header Window", value="root@system:~# ./check_status.sh")
-boot_header = st.sidebar.text_input("Teks Header Awal Terminal", value="Kernel 6.8.0-sys #1 SMP [tty1]")
-font_size = st.sidebar.slider("Ukuran Font", min_value=22, max_value=38, value=27)
-typing_speed = st.sidebar.slider("Kecepatan Ketik (Karakter/Detik)", min_value=10, max_value=26, value=16)
-end_hold = st.sidebar.slider("Durasi Tahan Banner Akhir (Detik)", min_value=0.8, max_value=2.5, value=1.4, step=0.1)
+st.sidebar.header("⚙️ Pengaturan Kecepatan")
+font_size = st.sidebar.slider("Ukuran Font", min_value=22, max_value=38, value=28)
+typing_speed = st.sidebar.slider("Kecepatan Ketik (Karakter/Detik)", min_value=12, max_value=28, value=18)
+end_hold = st.sidebar.slider("Durasi Tahan Ending (Detik)", min_value=0.8, max_value=2.5, value=1.4, step=0.1)
 add_sound = st.sidebar.checkbox("Suara Mechanical Keyboard + Audio Ending", value=True)
 
 fps = 30
 
-# --- PANDUAN FORMAT ---
-with st.expander("📖 Cara Kerja Auto-Deteksi Success / Error", expanded=False):
-    st.markdown("""
-    * **Auto-Deteksi:** Sistem membaca baris-baris akhir skenario Anda. Jika mengandung kata seperti `error`, `fail`, `gagal`, `fatal`, `crash`, `denied`, `hancur`, `rusak`, `404`, `500`, atau `abort`, ending otomatis berubah menjadi **MERAH (ERROR)** dengan suara peringatan.
-    * Jika tidak ditemukan indikasi error di bagian akhir, ending otomatis menjadi **HIJAU (SUCCESS)**.
-    * **Awali dengan `$` atau `>`** : Diketik satu per satu oleh user.
-    * **Tanpa `$` atau `>`** : Output sistem (muncul seketika). Baris yang mengandung `[ERROR]` / `[FAIL]` otomatis berwarna merah, `[OK]` / `[SUCCESS]` berwarna hijau.
-    * **`[LOADING]`** : Animasi *progress bar* otomatis.
-    """)
+# --- INPUT UTAMA: CUKUP KATA-KATA BIASA + PILIH HASIL AKHIR ---
+st.subheader("1. Tulis Kata-Kata Anda")
+raw_quotes = st.text_area(
+    "Ketik kalimat biasa (tiap baris baru akan diketik berurutan):",
+    value="Jangan takut sama error.\nKadang hidup cuma butuh di-debug,\nbukan di-uninstall.\nTetap semangat!",
+    height=150
+)
 
-default_script = """$ ./diagnose_hati.sh --deep
-[INFO] Memindai status koneksi & perasaan...
-[LOADING]
-[ERROR] Connection timeout: Terlalu berharap pada yang tidak pasti.
-[FATAL] Memory leak terdeteksi di kenangan_lama.dll
-[FAIL] Proses pemulihan gagal (Exit Code 1)."""
+col1, col2 = st.columns(2)
+with col1:
+    ending_choice = st.selectbox(
+        "2. Hasil Akhir (Ending):",
+        [
+            "Auto-Deteksi dari Kata-Kata",
+            "SUCCESS (Sistem Berhasil / Pulih)",
+            "ERROR (Sistem Gagal / Crash)"
+        ]
+    )
+with col2:
+    script_style = st.selectbox(
+        "3. Gaya Pembungkus Sistem:",
+        [
+            "Diagnostik & Perbaikan (repair.sh)",
+            "Eksekusi Pikiran (mindset.exe)",
+            "Server Status (systemctl)",
+            "Polos (Hanya Kata-Kata Saya)"
+        ]
+    )
 
-user_script = st.text_area("Skenario Terminal:", value=default_script, height=240)
-
-# --- FUNGSI DETEKSI SENTIMEN / STATUS TEKS ---
-def detect_terminal_outcome(script_text, mode):
-    if mode == "Selalu SUCCESS (Hijau)":
+# --- FUNGSI DETEKSI SENTIMEN ---
+def detect_outcome(text, choice):
+    if choice.startswith("SUCCESS"):
         return "success"
-    if mode == "Selalu ERROR (Merah)":
+    if choice.startswith("ERROR"):
         return "error"
 
-    error_keywords = [
-        "error", "err", "fail", "failed", "failure", "fatal", "crash", "crashed",
-        "denied", "refused", "timeout", "corrupt", "panic", "abort", "aborted",
-        "exception", "invalid", "not found", "404", "500", "503", "gagal",
-        "rusak", "hancur", "hilang", "putus", "kecewa", "sakit", "berhenti", "mati"
+    error_words = [
+        "error", "fail", "failed", "fatal", "crash", "gagal", "rusak",
+        "hancur", "hilang", "putus", "kecewa", "sakit", "berhenti", "mati", "menyerah", "lelah"
     ]
-    success_keywords = [
-        "success", "succeeded", "ok", "fixed", "repaired", "patched", "resolved",
-        "done", "complete", "completed", "online", "active", "ready", "berhasil",
-        "sembuh", "pulih", "aman", "selesai", "normal", "stabil", "bangkit"
-    ]
-
-    # Fokus analisis pada 3 baris terakhir yang tidak kosong (hasil akhir proses)
-    non_empty_lines = [l.strip().lower() for l in script_text.strip().split('\n') if l.strip()]
-    tail_text = " ".join(non_empty_lines[-3:]) if non_empty_lines else ""
-
-    err_score = sum(1 for kw in error_keywords if kw in tail_text)
-    suc_score = sum(1 for kw in success_keywords if kw in tail_text)
-
-    if err_score > suc_score:
+    low = text.lower()
+    if any(w in low for w in error_words):
         return "error"
     return "success"
+
+# --- KONVERSI KATA BIASA MENJADI SKENARIO TERMINAL OTOMATIS ---
+def build_terminal_script(quotes_text, outcome, style):
+    lines = [l.strip() for l in quotes_text.strip().split('\n') if l.strip()]
+    if not lines:
+        return ""
+
+    # Jika mode Polos, langsung jadikan baris ketikan tanpa embel-embel sistem
+    if style == "Polos (Hanya Kata-Kata Saya)":
+        return "\n".join([f"> {l}" for l in lines])
+
+    script_blocks = []
+
+    if style == "Diagnostik & Perbaikan (repair.sh)":
+        script_blocks.append("$ ./system_check.sh --run")
+        script_blocks.append("[INFO] Memproses data input...")
+        script_blocks.append("[LOADING]")
+        for l in lines:
+            script_blocks.append(f"> {l}")
+        if outcome == "error":
+            script_blocks.append("[ERROR] Proses terhenti: Ditemukan anomali sistem.")
+        else:
+            script_blocks.append("[OK] Patch berhasil diterapkan (0 errors).")
+
+    elif style == "Eksekusi Pikiran (mindset.exe)":
+        script_blocks.append("$ run mindset.exe --compile")
+        script_blocks.append("[LOADING]")
+        for l in lines:
+            script_blocks.append(f"> {l}")
+        if outcome == "error":
+            script_blocks.append("[FATAL] Runtime exception: Sistem butuh istirahat.")
+        else:
+            script_blocks.append("[SUCCESS] Kompilasi selesai. Siap berjalan.")
+
+    elif style == "Server Status (systemctl)":
+        script_blocks.append("$ systemctl status kehidupan.service")
+        for l in lines:
+            script_blocks.append(f"> {l}")
+        script_blocks.append("[LOADING]")
+        if outcome == "error":
+            script_blocks.append("[FAILED] Service inactive (dead).")
+        else:
+            script_blocks.append("[ACTIVE] Service running smoothly.")
+
+    return "\n".join(script_blocks)
 
 # --- FUNGSI LOAD FONT ---
 def get_font(size):
@@ -180,7 +206,6 @@ def render_terminal_frame(
     img = Image.new("RGB", (width, height), color=colors["canvas"])
     draw = ImageDraw.Draw(img)
 
-    # Efek Background Canvas
     if pattern == "Tech Grid Halus":
         step = 36
         for x in range(0, width, step):
@@ -196,10 +221,8 @@ def render_terminal_frame(
     win_w = width - (margin_x * 2)
     win_h = height - (margin_y * 2)
 
-    # Bayangan window
     draw.rectangle([margin_x + 8, margin_y + 10, margin_x + win_w + 8, margin_y + win_h + 10], fill=(0, 0, 0))
 
-    # Warna border window menyesuaikan ending jika sudah selesai
     if banner_text:
         active_border = (255, 65, 75) if banner_type == "error" else colors["success_fg"]
     else:
@@ -207,7 +230,6 @@ def render_terminal_frame(
 
     draw.rectangle([margin_x, margin_y, margin_x + win_w, margin_y + win_h], fill=colors["bg"], outline=active_border, width=2)
 
-    # Header Bar
     header_h = 46
     draw.rectangle([margin_x, margin_y, margin_x + win_w, margin_y + header_h], fill=colors["header"])
     btn_y = margin_y + 23
@@ -230,7 +252,7 @@ def render_terminal_frame(
         elif line_kind == "cmd":
             color = colors["cmd"]
         elif line_kind == "err_out":
-            color = (255, 85, 95)   # Output log error merah terang
+            color = (255, 85, 95)
         elif line_kind == "ok_out":
             color = colors["success_fg"]
         else:
@@ -257,7 +279,6 @@ def render_terminal_frame(
         draw.text((text_x, curr_y), text_line, fill=line_color, font=font)
         curr_y += line_height
 
-    # --- RENDER ENDING STAMP BANNER (SUCCESS / ERROR) ---
     if banner_text:
         box_margin = 20
         box_h = 56
@@ -298,26 +319,22 @@ def build_synchronized_audio(total_frames, fps, sound_events):
 
     rng = np.random.default_rng(42)
 
-    # Suara ketik mechanical
     key_len = int(0.022 * sample_rate)
     t_key = np.linspace(0, 0.022, key_len)
     noise_key = rng.normal(0, 1, key_len)
     key_sound = (noise_key * np.exp(-t_key * 220) * 0.45) + (np.sin(2 * np.pi * 240 * t_key) * np.exp(-t_key * 180) * 0.35)
 
-    # Suara Enter
     ent_len = int(0.040 * sample_rate)
     t_ent = np.linspace(0, 0.040, ent_len)
     noise_ent = rng.normal(0, 1, ent_len)
     enter_sound = (noise_ent * np.exp(-t_ent * 140) * 0.55) + (np.sin(2 * np.pi * 150 * t_ent) * np.exp(-t_ent * 110) * 0.5)
 
-    # Suara Chime Sukses (2 nada naik C6 -> G6)
     chime_len = int(0.28 * sample_rate)
     t_ch = np.linspace(0, 0.28, chime_len)
     part1 = np.where(t_ch < 0.11, np.sin(2 * np.pi * 1046.5 * t_ch) * np.exp(-t_ch * 12), 0)
     part2 = np.where(t_ch >= 0.11, np.sin(2 * np.pi * 1567.98 * (t_ch - 0.11)) * np.exp(-(t_ch - 0.11) * 10), 0)
     chime_sound = (part1 + part2) * 0.55
 
-    # Suara Error Buzzer (2 nada rendah peringatan)
     err_len = int(0.32 * sample_rate)
     t_er = np.linspace(0, 0.32, err_len)
     beep1 = np.where(t_er < 0.13, np.sign(np.sin(2 * np.pi * 190 * t_er)) * np.exp(-t_er * 10), 0)
@@ -353,24 +370,23 @@ def build_synchronized_audio(total_frames, fps, sound_events):
     return AudioClip(make_frame, duration=duration, fps=sample_rate)
 
 # --- PROSES GENERATE VIDEO ---
-if st.button("🎬 Generate Video System Terminal", type="primary", use_container_width=True):
-    if not user_script.strip():
-        st.warning("Teks skenario tidak boleh kosong!")
+if st.button("🎬 Generate Video Status WA", type="primary", use_container_width=True):
+    if not raw_quotes.strip():
+        st.warning("Tulis minimal 1 baris kata-kata terlebih dahulu!")
     else:
-        outcome = detect_terminal_outcome(user_script, ending_mode)
+        outcome = detect_outcome(raw_quotes, ending_choice)
+        generated_script = build_terminal_script(raw_quotes, outcome, script_style)
 
-        with st.spinner(f"Merender video (Terdeteksi Ending: {outcome.upper()})..."):
+        with st.spinner("Merender video terminal..."):
             width, height = 720, 1280
             font = get_font(font_size)
 
             frames = []
             sound_events = []
-            history_lines = []  # tuple: (text, line_kind)
-
-            if boot_header.strip():
-                history_lines.append((boot_header.strip(), "muted"))
+            history_lines = [("Kernel 6.8.0-sys #1 SMP [tty1]", "muted")]
 
             frames_per_char = max(1, round(fps / typing_speed))
+            window_title = "root@system:~# bash status.sh"
 
             def add_frame(active_cmd, cursor_on, banner=None):
                 frames.append(
@@ -380,30 +396,18 @@ if st.button("🎬 Generate Video System Terminal", type="primary", use_containe
                     )
                 )
 
-            # Awal singkat (0.25 detik)
-            for f in range(int(fps * 0.25)):
+            for f in range(int(fps * 0.2)):
                 add_frame("", True)
 
-            raw_lines = user_script.strip().split('\n')
-
-            for line in raw_lines:
+            for line in generated_script.split('\n'):
                 stripped = line.strip()
-
-                if stripped == "":
-                    history_lines.append(("", "out"))
-                    add_frame(None, True)
-                    continue
-
                 is_command = stripped.startswith("$") or stripped.startswith(">")
 
                 if is_command:
                     for char_idx in range(1, len(line) + 1):
                         partial_cmd = line[:char_idx]
-                        last_char = line[char_idx - 1]
-
-                        if last_char != " ":
+                        if line[char_idx - 1] != " ":
                             sound_events.append((len(frames), "key"))
-
                         for _ in range(frames_per_char):
                             add_frame(partial_cmd, True)
 
@@ -413,15 +417,13 @@ if st.button("🎬 Generate Video System Terminal", type="primary", use_containe
                     sound_events.append((len(frames), "enter"))
                     history_lines.append((line, "cmd"))
 
-                    for f in range(int(fps * 0.25)):
+                    for f in range(int(fps * 0.22)):
                         add_frame(None, (f // 4) % 2 == 0)
 
                 elif stripped == "[LOADING]":
-                    steps = 10
-                    for step in range(1, steps + 1):
-                        bar = "█" * (step * 2) + "░" * ((steps - step) * 2)
-                        pct = step * 10
-                        prog_text = f"[{bar}] {pct}%"
+                    for step in range(1, 11):
+                        bar = "█" * (step * 2) + "░" * ((10 - step) * 2)
+                        prog_text = f"[{bar}] {step * 10}%"
                         temp_history = history_lines + [(prog_text, "out")]
                         for _ in range(2):
                             frames.append(
@@ -433,11 +435,10 @@ if st.button("🎬 Generate Video System Terminal", type="primary", use_containe
                     history_lines.append(("[████████████████████] 100%", "out"))
 
                 else:
-                    # Pewarnaan baris log otomatis sesuai tag/kata kunci
                     low_line = stripped.lower()
-                    if any(tag in low_line for tag in ["[error]", "[fatal]", "[fail]", "error:", "failed", "gagal"]):
+                    if any(tag in low_line for tag in ["[error]", "[fatal]", "[failed]"]):
                         kind = "err_out"
-                    elif any(tag in low_line for tag in ["[ok]", "[success]", "[active]", "berhasil"]):
+                    elif any(tag in low_line for tag in ["[ok]", "[success]", "[active]"]):
                         kind = "ok_out"
                     else:
                         kind = "out"
@@ -446,12 +447,12 @@ if st.button("🎬 Generate Video System Terminal", type="primary", use_containe
                     for _ in range(int(fps * 0.18)):
                         add_frame(None, False)
 
-            # --- ENDING STAMP OTOMATIS (SUCCESS / ERROR) ---
+            # Banner Akhir
             if outcome == "error":
-                final_banner = custom_error_text.strip() or "✖ CRITICAL ERROR // SYSTEM HALTED"
+                final_banner = "✖ CRITICAL ERROR // SYSTEM HALTED"
                 sound_events.append((len(frames), "error"))
             else:
-                final_banner = custom_success_text.strip() or "✔ SYSTEM REPAIRED // ALL SERVICES OK"
+                final_banner = "✔ SYSTEM REPAIRED // ALL SERVICES OK"
                 sound_events.append((len(frames), "success"))
 
             end_frames = max(15, int(fps * end_hold))
@@ -478,16 +479,12 @@ if st.button("🎬 Generate Video System Terminal", type="primary", use_containe
                 logger=None
             )
 
-            if outcome == "error":
-                st.error(f"Video selesai dirender dengan ending **ERROR** (`{final_banner}`)")
-            else:
-                st.success(f"Video selesai dirender dengan ending **SUCCESS** (`{final_banner}`)")
-
+            st.success(f"✅ Video selesai! (Ending: **{outcome.upper()}**)")
             st.video(temp_path)
 
             with open(temp_path, "rb") as file:
                 st.download_button(
-                    label=f"⬇️ Download Video MP4 ({outcome.upper()})",
+                    label="⬇️ Download Video MP4",
                     data=file,
                     file_name=f"status_wa_{outcome}.mp4",
                     mime="video/mp4",
