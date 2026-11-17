@@ -8,38 +8,37 @@ import re
 import gc
 import os
 
-st.set_page_config(page_title="Programmer Desk Setup Video Generator", page_icon="🖥️", layout="centered")
+st.set_page_config(page_title="Programmer Desk Code Generator", page_icon="🖥️", layout="centered")
 
-st.title("🖥️ Programmer Desk Setup Video Generator")
-st.markdown("Animasi terminal di layar monitor meja kerja programmer malam hari dengan **auto-scroll terminal** dan **log error rapi**.")
+st.title("🖥️ Programmer Desk Code Generator")
+st.markdown("Tulis kalimat biasa → otomatis diubah menjadi **kode pemrograman asli** (*syntax highlighting*) di layar monitor setup malam hari.")
 
-# --- PILIHAN SETUP BACKGROUND & TEMA ---
-col1, col2 = st.columns(2)
+# --- PILIHAN SETUP BACKGROUND, BAHASA KODE & ENDING ---
+col1, col2, col3 = st.columns(3)
 with col1:
     setup_theme = st.selectbox(
-        "1. Pilih Suasana Meja Kerja (Background):",
+        "1. Suasana Meja:",
         [
-            "Cyberpunk City Night (Biru Neon - Hijau Terminal)",
-            "Warm Lo-Fi Midnight (Lampu Meja Hangat - Cyan Glow)",
-            "Matrix Hacker Room (Gelap Pekat - Hijau Neon)",
-            "Upload Gambar Setup Meja Sendiri"
+            "Cyberpunk City Night",
+            "Warm Lo-Fi Midnight",
+            "Matrix Hacker Room",
+            "Upload Gambar Meja Sendiri"
         ]
     )
 with col2:
+    lang_mode = st.selectbox(
+        "2. Bahasa Kode:",
+        ["JavaScript / TS", "Python", "C++"]
+    )
+with col3:
     ending_mode = st.selectbox(
-        "2. Hasil Akhir Eksekusi:",
-        [
-            "Auto-Deteksi dari Kata-Kata",
-            "ERROR (Monitor Merah + Log Baris Error)",
-            "PAUSED (Standby Kuning)",
-            "SUCCESS (100% Complete Hijau)"
-        ]
+        "3. Hasil Akhir:",
+        ["Auto-Deteksi", "ERROR", "PAUSED", "SUCCESS"]
     )
 
 uploaded_bg = None
-if setup_theme == "Upload Gambar Setup Meja Sendiri":
+if setup_theme == "Upload Gambar Meja Sendiri":
     uploaded_bg = st.file_uploader("Upload gambar/foto meja komputer (JPG/PNG/GIF):", type=["jpg", "jpeg", "png", "gif"])
-    st.caption("💡 Layar monitor di bagian tengah gambar akan otomatis diisi animasi terminal & progress bar.")
 
 default_words = """Not everything is real.
 Some things are just well-written illusions.
@@ -49,32 +48,38 @@ Take a break.
 Let the world run its own program."""
 
 user_words = st.text_area(
-    "3. Ganti Kata-Kata yang Muncul di Layar Monitor:",
+    "4. Tulis Kata-Kata Biasa (Otomatis Diterjemahkan Jadi Kode):",
     value=default_words,
-    height=170
+    height=165
 )
 
 with st.expander("⚙️ Pengaturan Kecepatan & Suara"):
-    typing_speed = st.slider("Kecepatan Ketik", 14, 30, 20)
-    use_sound = st.checkbox("Suara Ketikan Keyboard + Ambient Malam", value=True)
+    typing_speed = st.slider("Kecepatan Ngoding (Karakter/Detik)", 14, 32, 22)
+    use_sound = st.checkbox("Suara Ketikan Mechanical + Ambient Malam", value=True)
 
 fps = 20
 
 THEMES = {
-    "Cyberpunk City Night (Biru Neon - Hijau Terminal)": {
+    "Cyberpunk City Night": {
         "sky_top": (4, 10, 24), "sky_bot": (10, 28, 52), "city_glow": (15, 115, 175),
         "lamp_glow": (255, 180, 95), "kbd_led": (35, 165, 255),
-        "term_cmd": (75, 215, 245), "term_bar": (55, 245, 120), "term_txt": (220, 250, 255)
+        "term_cmd": (75, 215, 245), "term_bar": (55, 245, 120),
+        "kw": (255, 105, 180), "fn": (95, 210, 255), "var": (145, 245, 255),
+        "str": (155, 250, 175), "cmt": (95, 130, 170), "norm": (235, 242, 255)
     },
-    "Warm Lo-Fi Midnight (Lampu Meja Hangat - Cyan Glow)": {
+    "Warm Lo-Fi Midnight": {
         "sky_top": (8, 8, 16), "sky_bot": (22, 18, 34), "city_glow": (95, 65, 145),
         "lamp_glow": (255, 165, 70), "kbd_led": (255, 155, 65),
-        "term_cmd": (110, 235, 255), "term_bar": (255, 195, 85), "term_txt": (245, 245, 250)
+        "term_cmd": (110, 235, 255), "term_bar": (255, 195, 85),
+        "kw": (255, 121, 198), "fn": (255, 215, 105), "var": (139, 233, 253),
+        "str": (185, 250, 155), "cmt": (125, 120, 155), "norm": (245, 245, 250)
     },
-    "Matrix Hacker Room (Gelap Pekat - Hijau Neon)": {
+    "Matrix Hacker Room": {
         "sky_top": (1, 6, 3), "sky_bot": (4, 18, 8), "city_glow": (0, 130, 50),
         "lamp_glow": (40, 220, 100), "kbd_led": (0, 255, 85),
-        "term_cmd": (0, 255, 95), "term_bar": (120, 255, 145), "term_txt": (200, 255, 215)
+        "term_cmd": (0, 255, 95), "term_bar": (120, 255, 145),
+        "kw": (0, 255, 125), "fn": (155, 255, 180), "var": (65, 240, 120),
+        "str": (215, 255, 225), "cmt": (45, 135, 70), "norm": (195, 252, 210)
     }
 }
 
@@ -90,7 +95,7 @@ def get_font(size, bold=False):
     return ImageFont.load_default()
 
 def build_programmer_desk_scene(w, h, theme_key, custom_file=None):
-    mon_screen = (64, 338, 476, 612)
+    mon_screen = (60, 332, 480, 620)
 
     if custom_file is not None:
         img = Image.open(custom_file).convert("RGB")
@@ -132,7 +137,7 @@ def build_programmer_desk_scene(w, h, theme_key, custom_file=None):
     base = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
     draw = ImageDraw.Draw(base)
 
-    win_x1, win_y1, win_x2, win_y2 = 135, 35, 405, 340
+    win_x1, win_y1, win_x2, win_y2 = 135, 35, 405, 335
     draw.rectangle([win_x1, win_y1, win_x2, win_y2], fill=(6, 14, 28), outline=(18, 24, 34), width=6)
     rng = np.random.default_rng(2026)
     b_x = win_x1 + 8
@@ -163,31 +168,31 @@ def build_programmer_desk_scene(w, h, theme_key, custom_file=None):
     draw.text((440, 142), "PROCESS", fill=th["term_bar"], font=f_post_sm)
     draw.text((454, 165), "{ }", fill=(180, 215, 240), font=f_post)
 
-    draw.polygon([(0, 665), (w, 665), (w, h), (0, h)], fill=(18, 13, 11))
-    draw.line([(0, 665), (w, 665)], fill=(45, 34, 28), width=3)
-    draw.rectangle([245, 620, 295, 682], fill=(22, 26, 34))
-    draw.polygon([(195, 682), (345, 682), (365, 696), (175, 696)], fill=(30, 35, 45))
+    draw.polygon([(0, 670), (w, 670), (w, h), (0, h)], fill=(18, 13, 11))
+    draw.line([(0, 670), (w, 670)], fill=(45, 34, 28), width=3)
+    draw.rectangle([245, 626, 295, 686], fill=(22, 26, 34))
+    draw.polygon([(195, 686), (345, 686), (365, 700), (175, 700)], fill=(30, 35, 45))
 
-    mx1, my1, mx2, my2 = 52, 326, 488, 624
+    mx1, my1, mx2, my2 = 48, 320, 492, 632
     draw.rounded_rectangle([mx1, my1, mx2, my2], radius=14, fill=(16, 20, 28), outline=(55, 70, 92), width=3)
     sx1, sy1, sx2, sy2 = mon_screen
     draw.rounded_rectangle([sx1, sy1, sx2, sy2], radius=8, fill=(4, 7, 11))
 
-    draw.rounded_rectangle([32, 625, 108, 705], radius=10, fill=(14, 16, 20), outline=(40, 48, 60), width=2)
-    draw.arc([98, 642, 124, 688], start=270, end=90, fill=(40, 48, 60), width=5)
-    draw.text((52, 656), "</>", fill=th["kbd_led"], font=get_font(15, bold=True))
+    draw.rounded_rectangle([30, 630, 106, 710], radius=10, fill=(14, 16, 20), outline=(40, 48, 60), width=2)
+    draw.arc([96, 646, 122, 692], start=270, end=90, fill=(40, 48, 60), width=5)
+    draw.text((50, 660), "</>", fill=th["kbd_led"], font=get_font(15, bold=True))
 
     draw.polygon([(475, 485), (535, 515), (515, 545), (460, 510)], fill=(25, 30, 38))
     draw.ellipse([485, 518, 520, 542], fill=th["lamp_glow"])
-    draw.rounded_rectangle([442, 618, 502, 664], radius=14, fill=(32, 38, 48), outline=(70, 85, 105), width=2)
-    draw.rounded_rectangle([450, 628, 494, 652], radius=8, fill=(8, 12, 18))
-    draw.ellipse([456, 634, 468, 646], fill=th["term_cmd"])
-    draw.ellipse([476, 634, 488, 646], fill=th["term_cmd"])
-    draw.rounded_rectangle([452, 666, 492, 696], radius=8, fill=(28, 34, 44))
+    draw.rounded_rectangle([442, 622, 502, 668], radius=14, fill=(32, 38, 48), outline=(70, 85, 105), width=2)
+    draw.rounded_rectangle([450, 632, 494, 656], radius=8, fill=(8, 12, 18))
+    draw.ellipse([456, 638, 468, 650], fill=th["term_cmd"])
+    draw.ellipse([476, 638, 488, 650], fill=th["term_cmd"])
+    draw.rounded_rectangle([452, 670, 492, 700], radius=8, fill=(28, 34, 44))
 
-    draw.polygon([(115, 725), (425, 725), (455, 815), (85, 815)], fill=(14, 17, 23), outline=(45, 60, 80), width=2)
+    draw.polygon([(115, 728), (425, 728), (455, 818), (85, 818)], fill=(14, 17, 23), outline=(45, 60, 80), width=2)
     for row_i in range(4):
-        ky = 735 + row_i * 18
+        ky = 738 + row_i * 18
         margin = (3 - row_i) * 6
         kx = 124 + margin
         while kx < 416 - margin:
@@ -198,12 +203,8 @@ def build_programmer_desk_scene(w, h, theme_key, custom_file=None):
     return base, mon_screen
 
 def detect_outcome(text, choice):
-    if choice.startswith("ERROR"):
-        return "error"
-    if choice.startswith("PAUSED"):
-        return "paused"
-    if choice.startswith("SUCCESS"):
-        return "success"
+    if choice != "Auto-Deteksi":
+        return choice.lower()
     low = text.lower()
     if any(w in low for w in ["error", "fail", "crash", "gagal", "rusak", "hancur", "hilang", "putus", "kecewa", "sakit"]):
         return "error"
@@ -217,47 +218,143 @@ def extract_slug(text, fallback="process"):
     f = [w for w in words if w not in stop]
     return f"{f[0]}_{f[1]}" if len(f) >= 2 else (f[0] if f else fallback)
 
-def wrap_to_width(text, font, max_w, draw):
-    words = text.split(" ")
-    lines, cur = [], ""
-    for wd in words:
-        test = cur + (" " if cur else "") + wd
-        if draw.textbbox((0, 0), test, font=font)[2] <= max_w:
-            cur = test
-        else:
-            if cur:
-                lines.append(cur)
-            cur = wd
-    if cur:
-        lines.append(cur)
-    return lines
+# --- KONVERSI KALIMAT MENJADI TOKEN KODE ASLI (SYNTAX HIGHLIGHTING) ---
+def build_code_tokens(raw_text, lang, outcome):
+    lines = [l.strip() for l in raw_text.strip().split("\n") if l.strip()]
+    if not lines:
+        return [], "script.js", {}
 
-# --- RENDERER FRAME MONITOR DENGAN AUTO-SCROLL & LOG ERROR RAPI ---
+    main_fn = extract_slug(lines[0], "reality_check")
+    code_rows = []
+    err_var = extract_slug(lines[-1], "promise_state")
+
+    if lang == "JavaScript / TS":
+        ext = "js"
+        code_rows.append([("async function", "kw"), (" ", "norm"), (f"{main_fn}", "fn"), ("() {", "norm")])
+        for idx, line in enumerate(lines):
+            clean = line.replace('"', "'")
+            vname = extract_slug(line, f"var_{idx}")
+            low = line.lower()
+
+            if idx == 0:
+                code_rows.append([("  const", "kw"), (f" {vname} ", "var"), ("= ", "norm"), ("false", "kw"), (";", "norm")])
+                code_rows.append([("  // ", "cmt"), (clean, "cmt")])
+            elif any(w in low for w in ["if", "not", "bukan", "jangan", "stop", "no"]):
+                code_rows.append([("  if", "kw"), (" (!", "norm"), (vname, "var"), (") ", "norm"), ("warn", "fn"), (f'("{clean}")', "str"), (";", "norm")])
+            elif idx == len(lines) - 1:
+                code_rows.append([("  await", "kw"), (" ", "norm"), ("world", "var"), (".", "norm"), ("run", "fn"), (f'("{clean}")', "str"), (";", "norm")])
+            else:
+                code_rows.append([("  let", "kw"), (f" {vname} ", "var"), ("= ", "norm"), (f'"{clean}"', "str"), (";", "norm")])
+
+        err_line_num = len(code_rows) + 1
+        if outcome == "error":
+            code_rows.append([("  throw new", "kw"), (" ", "norm"), ("Error", "fn"), (f'("{err_var}_null")', "str"), (";", "norm")])
+        elif outcome == "paused":
+            code_rows.append([("  return", "kw"), (" ", "norm"), ('"SESSION_PAUSED"', "str"), (";", "norm")])
+        else:
+            code_rows.append([("  return", "kw"), (" ", "norm"), ('"SYSTEM_OK"', "str"), (";", "norm")])
+        code_rows.append([("}", "norm")])
+
+        err_info = {
+            "err_line": err_line_num,
+            "line1": f"✖ Error: {err_var}_null (Line {err_line_num:02d})",
+            "line2": f"at {main_fn} ({main_fn}.{ext}:{err_line_num}:9)",
+            "line3": f"Cause: \"{lines[-1]}\""
+        }
+
+    elif lang == "Python":
+        ext = "py"
+        code_rows.append([("def", "kw"), (" ", "norm"), (f"{main_fn}", "fn"), ("():", "norm")])
+        for idx, line in enumerate(lines):
+            clean = line.replace('"', "'")
+            vname = extract_slug(line, f"node_{idx}")
+            low = line.lower()
+
+            if idx == 0:
+                code_rows.append([(f"    {vname} ", "var"), ("= ", "norm"), ("False", "kw")])
+                code_rows.append([("    # ", "cmt"), (clean, "cmt")])
+            elif any(w in low for w in ["if", "not", "bukan", "jangan", "stop", "no"]):
+                code_rows.append([("    if not", "kw"), (f" {vname}: ", "var"), ("log", "fn"), (f'("{clean}")', "str")])
+            elif idx == len(lines) - 1:
+                code_rows.append([("    ", "norm"), ("world", "var"), (".", "norm"), ("execute", "fn"), (f'("{clean}")', "str")])
+            else:
+                code_rows.append([(f"    {vname} ", "var"), ("= ", "norm"), (f'"{clean}"', "str")])
+
+        err_line_num = len(code_rows) + 1
+        if outcome == "error":
+            code_rows.append([("    raise", "kw"), (" ", "norm"), ("RuntimeError", "fn"), (f'("{err_var}")', "str")])
+        elif outcome == "paused":
+            code_rows.append([("    return", "kw"), (" ", "norm"), ('"SESSION_PAUSED"', "str")])
+        else:
+            code_rows.append([("    return", "kw"), (" ", "norm"), ('"SYSTEM_OK"', "str")])
+
+        err_info = {
+            "err_line": err_line_num,
+            "line1": f"✖ RuntimeError: {err_var} (Line {err_line_num:02d})",
+            "line2": f"File \"{main_fn}.{ext}\", line {err_line_num}, in {main_fn}",
+            "line3": f"Cause: \"{lines[-1]}\""
+        }
+
+    else:  # C++
+        ext = "cpp"
+        code_rows.append([("int", "kw"), (" ", "norm"), (f"{main_fn}", "fn"), ("() {", "norm")])
+        for idx, line in enumerate(lines):
+            clean = line.replace('"', "'")
+            vname = extract_slug(line, f"ptr_{idx}")
+            if idx == 0:
+                code_rows.append([("    bool", "kw"), (f" {vname} ", "var"), ("= ", "norm"), ("false", "kw"), (";", "norm")])
+                code_rows.append([("    // ", "cmt"), (clean, "cmt")])
+            elif idx == len(lines) - 1:
+                code_rows.append([("    ", "norm"), ("sys_run", "fn"), (f'("{clean}")', "str"), (";", "norm")])
+            else:
+                code_rows.append([("    auto", "kw"), (f" {vname} ", "var"), ("= ", "norm"), (f'"{clean}"', "str"), (";", "norm")])
+
+        err_line_num = len(code_rows) + 1
+        if outcome == "error":
+            code_rows.append([("    assert", "fn"), (f"({err_var} != nullptr);", "norm")])
+        elif outcome == "paused":
+            code_rows.append([("    return", "kw"), (" SESSION_PAUSED;", "var")])
+        else:
+            code_rows.append([("    return", "kw"), (" EXIT_SUCCESS;", "var")])
+        code_rows.append([("}", "norm")])
+
+        err_info = {
+            "err_line": err_line_num,
+            "line1": f"✖ SEGFAULT at {main_fn}.{ext} (Line {err_line_num:02d})",
+            "line2": f"Assertion `{err_var} != nullptr` failed",
+            "line3": f"Cause: \"{lines[-1]}\""
+        }
+
+    return code_rows, f"{main_fn}.{ext}", err_info
+
+# --- RENDERER FRAME MONITOR (CODE EDITOR + AUTO-SCROLL + NEON GLOW) ---
 def render_monitor_frame(
     base_scene, mon_rect, phase, progress_pct,
-    boot_lines, typed_lines, active_line, cursor_on,
-    outcome, error_info, th, w=540, h=960
+    boot_lines, completed_rows, active_row, active_chars, cursor_on,
+    outcome, error_info, file_label, th, w=540, h=960
 ):
     img = base_scene.copy()
     sx1, sy1, sx2, sy2 = mon_rect
     sw = sx2 - sx1
     sh = sy2 - sy1
 
-    scr_layer = Image.new("RGB", (sw, sh), (4, 7, 11))
+    scr_layer = Image.new("RGB", (sw, sh), (5, 8, 13))
     s_draw = ImageDraw.Draw(scr_layer)
 
     if phase == "ending" and outcome == "error":
-        s_draw.rectangle([0, 0, sw, sh], fill=(24, 5, 8))
+        s_draw.rectangle([0, 0, sw, sh], fill=(24, 5, 9))
         s_draw.rounded_rectangle([1, 1, sw - 2, sh - 2], radius=8, outline=(255, 65, 75), width=2)
 
     f_boot = get_font(14, bold=True)
     f_pct = get_font(16, bold=True)
-    f_msg = get_font(13)
-    f_err_title = get_font(12, bold=True)
-    f_err_sub = get_font(11)
+    f_tab = get_font(11, bold=True)
+    f_code = get_font(13)
+    f_num = get_font(11)
+    f_err_title = get_font(11, bold=True)
+    f_err_sub = get_font(10)
 
     if phase == "boot":
-        cy = 28
+        cy = 34
         for bl in boot_lines:
             s_draw.text((22, cy), bl, fill=th["term_cmd"], font=f_boot)
             cy += 30
@@ -266,75 +363,119 @@ def render_monitor_frame(
         pct_txt = f"[ {progress_pct:3d}% ]"
         s_draw.text((22, bar_y), pct_txt, fill=th["term_bar"], font=f_pct)
 
-        bx1 = 118
-        bx2 = sw - 24
-        by1 = bar_y - 2
-        by2 = bar_y + 20
+        bx1, bx2 = 118, sw - 24
+        by1, by2 = bar_y - 2, bar_y + 20
         s_draw.rounded_rectangle([bx1, by1, bx2, by2], radius=4, outline=(190, 210, 225), width=2)
         fill_w = int((bx2 - bx1 - 6) * (progress_pct / 100.0))
         if fill_w > 0:
             s_draw.rounded_rectangle([bx1 + 3, by1 + 3, bx1 + 3 + fill_w, by2 - 3], radius=2, fill=th["term_bar"])
 
     else:
-        # 1. Kumpulkan semua baris ter-wrap terlebih dahulu agar bisa AUTO-SCROLL
-        max_w = sw - 34
-        rendered_rows = []  # list of (text, color)
+        # 1. Header Tab Editor di bagian paling atas layar monitor
+        hdr_h = 24
+        s_draw.rectangle([0, 0, sw, hdr_h], fill=(12, 18, 28))
+        s_draw.line([(0, hdr_h), (sw, hdr_h)], fill=(35, 50, 72), width=1)
+        s_draw.ellipse([10, 8, 17, 15], fill=(255, 95, 86))
+        s_draw.ellipse([22, 8, 29, 15], fill=(255, 189, 46))
+        s_draw.ellipse([34, 8, 41, 15], fill=(39, 201, 63))
+        s_draw.text((50, 5), f"{file_label}  •  UTF-8", fill=th["term_cmd"], font=f_tab)
 
-        for idx, line_txt in enumerate(typed_lines):
-            is_last_err = (phase == "ending" and outcome == "error" and idx == len(typed_lines) - 1)
-            col = (255, 95, 105) if is_last_err else (th["term_cmd"] if idx == 0 else th["term_txt"])
-            for wl in wrap_to_width(line_txt, f_msg, max_w, s_draw):
-                rendered_rows.append((wl, col))
+        # 2. Susun baris visual ter-wrap agar nomor baris dan token tetap utuh saat AUTO-SCROLL
+        gutter_x = 10
+        code_x = 34
+        max_code_w = sw - code_x - 10
+        line_h = 19
 
-        if active_line is not None:
-            disp = active_line + ("█" if cursor_on else " ")
-            for wl in wrap_to_width(disp, f_msg, max_w, s_draw):
-                rendered_rows.append((wl, th["term_txt"]))
+        # Kumpulkan baris-baris yang akan digambar: (line_num_or_None, [(char, color), ...], is_err_row, draw_cursor)
+        visual_lines = []
 
-        # Hitung batas tinggi area teks agar tidak menabrak kotak status di bawah
-        footer_reserve = 82 if (phase == "ending" and outcome == "error") else (54 if phase == "ending" else 16)
-        avail_h = sh - 16 - footer_reserve
-        line_step = 20
-        max_visible_rows = max(1, avail_h // line_step)
+        def process_token_row(row_tokens, line_num, char_limit=None, show_cur=False):
+            is_err = (phase == "ending" and outcome == "error" and error_info.get("err_line") == line_num)
+            cur_chars = []
+            cur_w = 0
+            counted = 0
+            first_subline = True
 
-        # AUTO-SCROLL: ambil baris terbawah sebanyak ruang yang muat
-        visible_rows = rendered_rows[-max_visible_rows:]
+            for tok_txt, tok_role in row_tokens:
+                if char_limit is not None:
+                    rem = char_limit - counted
+                    if rem <= 0:
+                        break
+                    piece = tok_txt[:rem]
+                else:
+                    piece = tok_txt
 
-        cy = 14
-        for r_txt, r_col in visible_rows:
-            s_draw.text((16, cy), r_txt, fill=r_col, font=f_msg)
-            cy += line_step
+                col = (255, 105, 115) if is_err else th.get(tok_role, th["norm"])
+                for ch in piece:
+                    cw = s_draw.textbbox((0, 0), ch, font=f_code)[2]
+                    if cur_w + cw > max_code_w and cur_chars:
+                        visual_lines.append((line_num if first_subline else None, cur_chars, is_err, False))
+                        first_subline = False
+                        cur_chars = [(" ", col), (" ", col)]  # indentasi wrap
+                        cur_w = cw * 2
+                    cur_chars.append((ch, col))
+                    cur_w += cw
+                    counted += 1
 
-        # 2. Kotak Status / Log Error Rapi di Bawah Monitor (Tanpa Teks Terpotong)
+            visual_lines.append((line_num if first_subline else None, cur_chars, is_err, show_cur))
+
+        for idx, r_tok in enumerate(completed_rows):
+            process_token_row(r_tok, idx + 1)
+
+        if active_row is not None:
+            process_token_row(active_row, len(completed_rows) + 1, char_limit=active_chars, show_cur=True)
+
+        # Hitung ruang vertikal yang tersedia di atas kotak status bawah
+        footer_reserve = 78 if (phase == "ending" and outcome == "error") else (48 if phase == "ending" else 12)
+        avail_h = sh - (hdr_h + 6) - footer_reserve
+        max_vis = max(1, avail_h // line_h)
+
+        # AUTO-SCROLL: ambil baris terbawah yang muat di layar monitor
+        vis_slice = visual_lines[-max_vis:]
+
+        cy = hdr_h + 6
+        for l_num, char_list, is_err, has_cur in vis_slice:
+            if is_err:
+                s_draw.rectangle([2, cy - 1, sw - 2, cy + line_h - 1], fill=(75, 14, 22))
+            if l_num is not None:
+                num_col = (255, 95, 105) if is_err else th["cmt"]
+                s_draw.text((gutter_x, cy + 1), f"{l_num:02d}", fill=num_col, font=f_num)
+
+            cx = code_x
+            for ch, c_col in char_list:
+                s_draw.text((cx, cy), ch, fill=c_col, font=f_code)
+                cx += s_draw.textbbox((0, 0), ch, font=f_code)[2]
+
+            if has_cur and cursor_on:
+                s_draw.rectangle([cx + 1, cy + 2, cx + 8, cy + 15], fill=th["fn"])
+            cy += line_h
+
+        # 3. Kotak Log Error / Status Rapi di Bawah Layar Monitor
         if phase == "ending":
             if outcome == "error":
-                by1, by2 = sh - 76, sh - 10
-                s_draw.rounded_rectangle([12, by1, sw - 12, by2], radius=6, fill=(58, 10, 16), outline=(255, 75, 85), width=2)
+                by1, by2 = sh - 72, sh - 8
+                s_draw.rounded_rectangle([10, by1, sw - 10, by2], radius=6, fill=(58, 10, 16), outline=(255, 75, 85), width=2)
+                s_draw.text((18, by1 + 5), error_info["line1"], fill=(255, 95, 105), font=f_err_title)
+                s_draw.text((18, by1 + 23), error_info["line2"], fill=(255, 200, 110), font=f_err_sub)
 
-                # Baris 1: File & Nomor Baris Error
-                s_draw.text((20, by1 + 6), error_info["line1"], fill=(255, 95, 105), font=f_err_title)
-                # Baris 2: Jenis Exception
-                s_draw.text((20, by1 + 25), error_info["line2"], fill=(255, 200, 110), font=f_err_sub)
-                # Baris 3: Penyebab (dipotong presisi sesuai lebar kotak agar rapi)
                 cause_txt = error_info["line3"]
-                while s_draw.textbbox((0, 0), cause_txt, font=f_err_sub)[2] > (sw - 42) and len(cause_txt) > 10:
+                while s_draw.textbbox((0, 0), cause_txt, font=f_err_sub)[2] > (sw - 38) and len(cause_txt) > 10:
                     cause_txt = cause_txt[:-4] + "..."
-                s_draw.text((20, by1 + 43), cause_txt, fill=(240, 215, 215), font=f_err_sub)
+                s_draw.text((18, by1 + 40), cause_txt, fill=(240, 215, 215), font=f_err_sub)
 
             elif outcome == "paused":
-                by1, by2 = sh - 48, sh - 10
-                s_draw.rounded_rectangle([12, by1, sw - 12, by2], radius=6, fill=(55, 42, 8), outline=(255, 200, 50), width=2)
-                lbl = f"[||] SESSION PAUSED • LINE {error_info['err_line']:02d}"
-                s_draw.text((22, by1 + 11), lbl, fill=(255, 210, 70), font=f_err_title)
+                by1, by2 = sh - 44, sh - 8
+                s_draw.rounded_rectangle([10, by1, sw - 10, by2], radius=6, fill=(55, 42, 8), outline=(255, 200, 50), width=2)
+                s_draw.text((20, by1 + 10), f"[||] SESSION PAUSED • LINE {error_info['err_line']:02d}", fill=(255, 210, 70), font=f_err_title)
             else:
-                by1, by2 = sh - 48, sh - 10
-                s_draw.rounded_rectangle([12, by1, sw - 12, by2], radius=6, fill=(10, 55, 25), outline=(65, 255, 130), width=2)
-                lbl = "[100%] SYSTEM REPAIRED • EXIT 0"
-                s_draw.text((22, by1 + 11), lbl, fill=(75, 255, 140), font=f_err_title)
+                by1, by2 = sh - 44, sh - 8
+                s_draw.rounded_rectangle([10, by1, sw - 10, by2], radius=6, fill=(10, 55, 25), outline=(65, 255, 130), width=2)
+                s_draw.text((20, by1 + 10), "[100%] SYSTEM REPAIRED • EXIT 0", fill=(75, 255, 140), font=f_err_title)
 
-    glow = scr_layer.filter(ImageFilter.GaussianBlur(radius=4))
+    # Efek Neon Text Glow pada layar monitor
+    glow = scr_layer.filter(ImageFilter.GaussianBlur(radius=3))
     scr_glowed = Image.fromarray(
-        np.clip(np.array(scr_layer, dtype=np.int16) + (np.array(glow, dtype=np.int16) * 0.65).astype(np.int16), 0, 255).astype(np.uint8)
+        np.clip(np.array(scr_layer, dtype=np.int16) + (np.array(glow, dtype=np.int16) * 0.55).astype(np.int16), 0, 255).astype(np.uint8)
     )
 
     img.paste(scr_glowed, (sx1, sy1))
@@ -389,7 +530,7 @@ def build_audio_wav(duration, wav_path, key_frames, fps, enable_sound=True):
         wf.setframerate(sr)
         wf.writeframes(pcm16.tobytes())
 
-if st.button("🎬 Generate Video Desk Setup", type="primary", use_container_width=True):
+if st.button("🎬 Generate Video Kode Programmer", type="primary", use_container_width=True):
     raw_lines = [l.strip() for l in user_words.strip().split("\n") if l.strip()]
     if not raw_lines:
         st.warning("Teks tidak boleh kosong!")
@@ -401,47 +542,36 @@ if st.button("🎬 Generate Video Desk Setup", type="primary", use_container_wid
                 pass
 
         outcome = detect_outcome(user_words, ending_mode)
-        slug = extract_slug(raw_lines[0], "wisdom")
-        th_active = THEMES.get(setup_theme, THEMES["Cyberpunk City Night (Biru Neon - Hijau Terminal)"])
+        code_rows, file_label, error_info = build_code_tokens(user_words, lang_mode, outcome)
+        slug = file_label.split(".")[0]
+        th_active = THEMES.get(setup_theme, THEMES["Cyberpunk City Night"])
 
-        # Nomor baris yang sesuai persis dengan tampilan nomor baris di monitor [01], [02], dst.
-        err_line_idx = len(raw_lines)
-        err_var = extract_slug(raw_lines[-1], "promise_node")
-        error_info = {
-            "err_line": err_line_idx,
-            "line1": f"✖ FATAL ERROR • {slug}.exe (Line {err_line_idx:02d})",
-            "line2": f"Exception: {err_var}_failed (Exit 1)",
-            "line3": f"Cause: \"{raw_lines[-1]}\""
-        }
-
-        with st.spinner("Merender setup meja malam & animasi monitor..."):
+        with st.spinner("Merender setup meja malam & kode pemrograman..."):
             w, h = 540, 960
             base_scene, mon_rect = build_programmer_desk_scene(w, h, setup_theme, custom_file=uploaded_bg)
             f_per_char = max(1, round(fps / typing_speed))
 
             boot_steps = [
-                f"$ booting {slug}.exe...",
-                "$ initializing mind...",
-                "$ loading message..."
+                f"$ booting {file_label}...",
+                "$ initializing compiler...",
+                "$ loading source..."
             ]
-            boot_frames = int(fps * 1.5)
-
-            # Nomor baris eksplisit [01], [02]... agar sinkron dengan log error!
-            script_lines = [f"$ exec {slug}.sh --run"] + [f"[{i+1:02d}] {l}" for i, l in enumerate(raw_lines)]
+            boot_frames = int(fps * 1.4)
 
             key_frames = []
             sim_f = boot_frames
-            for idx, line_s in enumerate(script_lines):
+            for idx, r_tok in enumerate(code_rows):
+                full_s = "".join(t[0] for t in r_tok)
                 if idx == 0:
                     sim_f += int(fps * 0.25)
                 else:
-                    for ci in range(1, len(line_s) + 1):
-                        if line_s[ci - 1] != " ":
+                    for ci in range(1, len(full_s) + 1):
+                        if full_s[ci - 1] != " ":
                             key_frames.append(sim_f)
                         sim_f += f_per_char
                     sim_f += int(fps * 0.15)
 
-            end_frames = int(fps * 1.4)
+            end_frames = int(fps * 1.5)
             total_frames = sim_f + end_frames
             total_dur = max(1.0, total_frames / fps)
 
@@ -467,50 +597,54 @@ if st.button("🎬 Generate Video Desk Setup", type="primary", use_container_wid
 
             proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
             try:
+                # 1. Fase Booting & Progress Bar 0% -> 100%
                 for bf in range(boot_frames):
                     pct = min(100, int((bf / max(1, boot_frames - 1)) * 100))
                     visible_boots = boot_steps[: 1 + min(2, int((bf / boot_frames) * 3))]
                     proc.stdin.write(
                         render_monitor_frame(
                             base_scene, mon_rect, "boot", pct,
-                            visible_boots, [], None, False, outcome, error_info, th_active, w, h
+                            visible_boots, [], None, 0, False, outcome, error_info, file_label, th_active, w, h
                         )
                     )
 
+                # 2. Fase Ngoding Sintaks Asli di Layar Monitor
                 completed = []
-                for idx, line_s in enumerate(script_lines):
+                for idx, r_tok in enumerate(code_rows):
+                    full_s = "".join(t[0] for t in r_tok)
                     if idx == 0:
-                        completed.append(line_s)
+                        completed.append(r_tok)
                         for _ in range(int(fps * 0.25)):
                             proc.stdin.write(
                                 render_monitor_frame(
                                     base_scene, mon_rect, "typing", 100,
-                                    [], completed, None, False, outcome, error_info, th_active, w, h
+                                    [], completed, None, 0, False, outcome, error_info, file_label, th_active, w, h
                                 )
                             )
                     else:
-                        for ci in range(1, len(line_s) + 1):
+                        for ci in range(1, len(full_s) + 1):
                             for _ in range(f_per_char):
                                 proc.stdin.write(
                                     render_monitor_frame(
                                         base_scene, mon_rect, "typing", 100,
-                                        [], completed, line_s[:ci], True, outcome, error_info, th_active, w, h
+                                        [], completed, r_tok, ci, True, outcome, error_info, file_label, th_active, w, h
                                     )
                                 )
-                        completed.append(line_s)
+                        completed.append(r_tok)
                         for _ in range(int(fps * 0.15)):
                             proc.stdin.write(
                                 render_monitor_frame(
                                     base_scene, mon_rect, "typing", 100,
-                                    [], completed, None, False, outcome, error_info, th_active, w, h
+                                    [], completed, None, 0, False, outcome, error_info, file_label, th_active, w, h
                                 )
                             )
 
+                # 3. Fase Ending (Highlight Baris Error Merah + Stack Trace Rapi)
                 for _ in range(end_frames):
                     proc.stdin.write(
                         render_monitor_frame(
                             base_scene, mon_rect, "ending", 100,
-                            [], completed, None, False, outcome, error_info, th_active, w, h
+                            [], completed, None, 0, False, outcome, error_info, file_label, th_active, w, h
                         )
                     )
 
@@ -523,16 +657,17 @@ if st.button("🎬 Generate Video Desk Setup", type="primary", use_container_wid
 
             if os.path.exists(mp4_path) and os.path.getsize(mp4_path) > 0:
                 st.session_state["last_mp4"] = mp4_path
+                st.session_state["last_file"] = file_label
                 st.session_state["last_outcome"] = outcome
 
 if "last_mp4" in st.session_state and os.path.exists(st.session_state["last_mp4"]):
-    st.success(f"✅ Video meja programmer siap! (Status: **{st.session_state['last_outcome'].upper()}**)")
+    st.success(f"✅ Video **{st.session_state['last_file']}** siap! (Status: **{st.session_state['last_outcome'].upper()}**)")
     st.video(st.session_state["last_mp4"])
     with open(st.session_state["last_mp4"], "rb") as f:
         st.download_button(
             label="⬇️ Download Video MP4",
             data=f.read(),
-            file_name=f"desk_coder_{st.session_state['last_outcome']}.mp4",
+            file_name=f"coder_{st.session_state['last_file']}.mp4",
             mime="video/mp4",
             use_container_width=True
         )
