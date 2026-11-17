@@ -8,59 +8,38 @@ import re
 import gc
 import os
 
-st.set_page_config(page_title="Cinematic Coder Video - WA Status", page_icon="✨", layout="centered")
+st.set_page_config(page_title="Programmer Desk Setup Video Generator", page_icon="🖥️", layout="centered")
 
-st.title("✨ Cinematic Dark Coder Video Generator")
-st.markdown("Desain **Glassmorphism + Radial Glow + Textured Background** ala video estetik TikTok/Reels/Status WA.")
+st.title("🖥️ Programmer Desk Setup Video Generator")
+st.markdown("Buat video animasi terminal di dalam **layar monitor meja kerja programmer malam hari** lengkap dengan *progress bar*, *neon text glow*, dan *background* setup realistis.")
 
-# --- 5 TEMA VISUAL DENGAN LATAR BELAKANG & EFEK BERBEDA ---
-THEMES = {
-    "1. Midnight Ocean (Gradien Biru Dalam + Cyan Glow)": {
-        "bg_top": (4, 10, 22), "bg_bot": (10, 26, 48), "glow": (20, 110, 190),
-        "bg_fx": "dots",
-        "card": (11, 17, 28), "header": (16, 24, 38), "border": (56, 152, 236),
-        "kw": (255, 118, 188), "fn": (96, 215, 255), "var": (145, 245, 255),
-        "str": (152, 245, 175), "cmt": (95, 130, 170), "norm": (238, 244, 255)
-    },
-    "2. Cyberpunk Tokyo (Gradien Ungu + Cyber Grid + Pink/Cyan)": {
-        "bg_top": (14, 5, 28), "bg_bot": (38, 10, 58), "glow": (210, 35, 115),
-        "bg_fx": "grid",
-        "card": (20, 10, 36), "header": (30, 14, 52), "border": (255, 55, 130),
-        "kw": (255, 65, 140), "fn": (255, 225, 95), "var": (35, 230, 245),
-        "str": (255, 175, 230), "cmt": (145, 95, 185), "norm": (245, 238, 255)
-    },
-    "3. Matrix Rain (Hitam Pekat + Hujan Kode Hijau)": {
-        "bg_top": (1, 6, 3), "bg_bot": (4, 20, 9), "glow": (0, 175, 65),
-        "bg_fx": "matrix",
-        "card": (5, 14, 8), "header": (8, 22, 12), "border": (0, 220, 85),
-        "kw": (0, 255, 125), "fn": (150, 255, 180), "var": (65, 240, 120),
-        "str": (215, 255, 225), "cmt": (45, 135, 70), "norm": (195, 252, 210)
-    },
-    "4. Sunset Crimson (Gradien Merah Gelap + Emas Hangat)": {
-        "bg_top": (18, 6, 10), "bg_bot": (46, 15, 18), "glow": (215, 85, 45),
-        "bg_fx": "dots",
-        "card": (24, 11, 14), "header": (34, 16, 20), "border": (245, 135, 65),
-        "kw": (255, 95, 110), "fn": (255, 205, 85), "var": (255, 165, 115),
-        "str": (255, 235, 155), "cmt": (155, 100, 95), "norm": (252, 240, 235)
-    },
-    "5. MacBook Pro Titanium (Minimalis Mewah + Soft Ambient)": {
-        "bg_top": (14, 15, 19), "bg_bot": (26, 29, 36), "glow": (95, 115, 155),
-        "bg_fx": "clean",
-        "card": (22, 24, 30), "header": (30, 33, 41), "border": (95, 105, 125),
-        "kw": (255, 121, 198), "fn": (139, 233, 253), "var": (189, 147, 249),
-        "str": (241, 250, 140), "cmt": (115, 125, 150), "norm": (248, 248, 242)
-    }
-}
-
-col1, col2, col3 = st.columns(3)
+# --- PILIHAN SETUP BACKGROUND & TEMA ---
+col1, col2 = st.columns(2)
 with col1:
-    theme_name = st.selectbox("Pilih Tema Estetik:", list(THEMES.keys()))
+    setup_theme = st.selectbox(
+        "1. Pilih Suasana Meja Kerja (Background):",
+        [
+            "Cyberpunk City Night (Biru Neon - Hijau Terminal)",
+            "Warm Lo-Fi Midnight (Lampu Meja Hangat - Cyan Glow)",
+            "Matrix Hacker Room (Gelap Pekat - Hijau Neon)",
+            "Upload Gambar Setup Meja Sendiri"
+        ]
+    )
 with col2:
-    lang_mode = st.selectbox("Bahasa Kode:", ["JavaScript / TS", "Python", "C++"])
-with col3:
-    ending_mode = st.selectbox("Hasil Akhir:", ["Auto-Deteksi", "ERROR", "PAUSED", "SUCCESS"])
+    ending_mode = st.selectbox(
+        "2. Hasil Akhir Eksekusi:",
+        [
+            "Auto-Deteksi dari Kata-Kata",
+            "ERROR (Monitor Merah + Log Baris Error)",
+            "PAUSED (Standby Kuning)",
+            "SUCCESS (100% Complete Hijau)"
+        ]
+    )
 
-th = THEMES[theme_name]
+uploaded_bg = None
+if setup_theme == "Upload Gambar Setup Meja Sendiri":
+    uploaded_bg = st.file_uploader("Upload gambar/foto meja komputer (JPG/PNG/GIF):", type=["jpg", "jpeg", "png", "gif"])
+    st.caption("💡 Tip: Layar monitor di bagian tengah gambar akan otomatis diisi animasi terminal & progress bar.")
 
 default_words = """Not everything is real.
 Some things are just well-written illusions.
@@ -70,269 +49,34 @@ Take a break.
 Let the world run its own program."""
 
 user_words = st.text_area(
-    "Ganti Kata-Kata di Sini:",
+    "3. Ganti Kata-Kata yang Muncul di Layar Monitor:",
     value=default_words,
-    height=175
+    height=170
 )
 
-with st.expander("⚙️ Pengaturan Kecepatan & Audio"):
-    typing_speed = st.slider("Kecepatan Ketik", 12, 28, 18)
-    use_sound = st.checkbox("Suara Ketikan Mechanical + Piano Pelan", value=True)
+with st.expander("⚙️ Pengaturan Kecepatan & Suara"):
+    typing_speed = st.slider("Kecepatan Ketik", 14, 30, 20)
+    use_sound = st.checkbox("Suara Ketikan Keyboard + Ambient Malam", value=True)
 
 fps = 20
 
-# --- PRE-RENDER BACKGROUND ESTETIK SEKALI SAJA (SUPER CEPAT & HEMAT RAM) ---
-def create_aesthetic_base(w, h, th):
-    # 1. Buat Gradien Vertikal Halus dengan NumPy
-    y_grad = np.linspace(0, 1, h, dtype=np.float32)[:, None, None]
-    top_c = np.array(th["bg_top"], dtype=np.float32)
-    bot_c = np.array(th["bg_bot"], dtype=np.float32)
-    grad = top_c * (1.0 - y_grad) + bot_c * y_grad
-    bg_arr = np.broadcast_to(grad, (h, w, 3)).copy()
-
-    # 2. Tambahkan Radial Glow di tengah-atas belakang kartu kode
-    yy, xx = np.ogrid[:h, :w]
-    dist_sq = ((xx - w / 2.0) / (w * 0.65)) ** 2 + ((yy - h * 0.42) / (h * 0.45)) ** 2
-    radial = np.exp(-dist_sq * 2.2)[:, :, None]
-    glow_c = np.array(th["glow"], dtype=np.float32)
-    bg_arr += radial * glow_c * 0.48
-
-    # 3. Vignette gelap di keempat sudut agar fokus mata ke tengah
-    vig_dist = ((xx - w / 2.0) / (w * 0.55)) ** 2 + ((yy - h / 2.0) / (h * 0.55)) ** 2
-    vignette = np.clip(1.0 - vig_dist * 0.35, 0.45, 1.0)[:, :, None]
-    bg_arr *= vignette
-
-    base_img = Image.fromarray(np.clip(bg_arr, 0, 255).astype(np.uint8))
-    draw = ImageDraw.Draw(base_img)
-
-    # 4. Efek Tekstur Background sesuai Tema
-    fx = th["bg_fx"]
-    b_col = tuple(min(255, int(c * 0.45)) for c in th["border"])
-
-    if fx == "grid":
-        step = 36
-        for gx in range(0, w, step):
-            draw.line([(gx, 0), (gx, h)], fill=b_col, width=1)
-        for gy in range(0, h, step):
-            draw.line([(0, gy), (w, gy)], fill=b_col, width=1)
-    elif fx == "dots":
-        rng = np.random.default_rng(99)
-        for _ in range(55):
-            dx = int(rng.integers(15, w - 15))
-            dy = int(rng.integers(15, h - 15))
-            r = int(rng.integers(1, 3))
-            draw.ellipse([dx - r, dy - r, dx + r, dy + r], fill=b_col)
-    elif fx == "matrix":
-        f_mat = get_font(12)
-        rng = np.random.default_rng(77)
-        chars = "01アイウエオカキクケコXYZ"
-        for col_x in range(12, w - 12, 26):
-            start_y = int(rng.integers(10, 180))
-            length = int(rng.integers(6, 18))
-            for k in range(length):
-                cy = start_y + k * 18
-                if cy < h - 20:
-                    ch = chars[int(rng.integers(0, len(chars)))]
-                    fade = int(45 + (k / length) * 85)
-                    draw.text((col_x, cy), ch, fill=(0, fade, int(fade * 0.4)), font=f_mat)
-
-    # 5. Gambar Drop Shadow + Kartu Glassmorphism Rounded di atas Background
-    mx, my = 24, 72
-    ww, wh = w - (mx * 2), h - (my * 2)
-
-    shadow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    s_draw = ImageDraw.Draw(shadow)
-    s_draw.rounded_rectangle([mx + 4, my + 10, mx + ww + 4, my + wh + 10], radius=18, fill=(0, 0, 0, 175))
-    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=12))
-
-    base_rgba = base_img.convert("RGBA")
-    base_rgba = Image.alpha_composite(base_rgba, shadow)
-
-    # Kartu semi-transparan gelap (Glass effect)
-    card_layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    c_draw = ImageDraw.Draw(card_layer)
-    c_col = th["card"] + (232,)  # Sedikit transparan agar radial glow tembus halus
-    h_col = th["header"] + (245,)
-    c_draw.rounded_rectangle([mx, my, mx + ww, my + wh], radius=16, fill=c_col)
-    # Header bar bagian atas kartu
-    c_draw.rounded_rectangle([mx, my, mx + ww, my + 40], radius=16, fill=h_col)
-    c_draw.rectangle([mx, my + 24, mx + ww, my + 40], fill=h_col)
-
-    base_rgba = Image.alpha_composite(base_rgba, card_layer)
-    return base_rgba.convert("RGB")
-
-def extract_slug(text, fallback="state"):
-    words = re.findall(r"[a-zA-Z]{3,}", text.lower())
-    stop = {"the", "and", "for", "are", "but", "not", "you", "all", "just", "some", "that", "with", "yang", "dan", "ini", "itu", "untuk", "dari"}
-    filtered = [w for w in words if w not in stop]
-    if not filtered:
-        return fallback
-    if len(filtered) == 1:
-        return filtered[0]
-    return f"{filtered[0]}_{filtered[1]}"
-
-def detect_outcome(text, choice):
-    if choice != "Auto-Deteksi":
-        return choice.lower()
-    low = text.lower()
-    if any(w in low for w in ["error", "fail", "crash", "gagal", "rusak", "hancur", "hilang", "putus", "kecewa", "sakit"]):
-        return "error"
-    if any(w in low for w in ["pause", "rest", "break", "world run", "stop", "istirahat", "jeda"]):
-        return "paused"
-    return "success"
-
-def build_dynamic_code_tokens(raw_text, lang, outcome):
-    lines = [l.strip() for l in raw_text.strip().split("\n") if l.strip()]
-    if not lines:
-        return [], [], "empty", None
-
-    main_fn = extract_slug(lines[0], "check_reality")
-    code_rows = []
-    error_line_num = 1
-    error_var_name = extract_slug(lines[-1], "promise_state")
-    error_reason = lines[-1].replace('"', "'")
-
-    if lang == "JavaScript / TS":
-        ext = "js"
-        code_rows.append([("async function", "kw"), (" ", "norm"), (f"{main_fn}", "fn"), ("() {", "norm")])
-        for idx, line in enumerate(lines):
-            clean = line.replace('"', "'")
-            var_name = extract_slug(line, f"step_{idx}")
-            low = line.lower()
-
-            if idx == 0:
-                code_rows.append([("  const", "kw"), (f" {var_name} ", "var"), ("= ", "norm"), ("false", "kw"), (";", "norm")])
-                code_rows.append([("  // ", "cmt"), (clean, "cmt")])
-            elif any(w in low for w in ["if", "not", "bukan", "jangan", "stop", "no"]):
-                code_rows.append([("  if", "kw"), (" (!", "norm"), (var_name, "var"), (") {", "norm")])
-                code_rows.append([("    ", "norm"), ("log", "fn"), (f'("{clean}")', "str"), (";", "norm")])
-                code_rows.append([("  }", "norm")])
-            elif idx == len(lines) - 1:
-                code_rows.append([("  await", "kw"), (" ", "norm"), ("system", "var"), (".", "norm"), ("run", "fn"), (f'("{clean}")', "str"), (";", "norm")])
-            else:
-                code_rows.append([("  let", "kw"), (f" {var_name} ", "var"), ("= ", "norm"), (f'"{clean}"', "str"), (";", "norm")])
-
-        error_line_num = len(code_rows) + 1
-        if outcome == "paused":
-            code_rows.append([("  return", "kw"), (" ", "norm"), ('"SESSION_PAUSED"', "str"), (";", "norm")])
-        elif outcome == "error":
-            code_rows.append([("  throw new", "kw"), (" ", "norm"), ("Error", "fn"), (f'("{error_var_name}_FAILED")', "str"), (";", "norm")])
-        else:
-            code_rows.append([("  return", "kw"), (" ", "norm"), ('"SYSTEM_OK"', "str"), (";", "norm")])
-        code_rows.append([("}", "norm")])
-
-        if outcome == "error":
-            exec_logs = [
-                (f"$ node {main_fn}.{ext}", "norm"),
-                (f"Error: {error_var_name}_FAILED (NullPromise)", "err"),
-                (f"  at {main_fn} ({main_fn}.{ext}:{error_line_num}:9)", "err"),
-                (f"  Cause -> \"{error_reason[:40]}\"", "warn")
-            ]
-        elif outcome == "paused":
-            exec_logs = [
-                (f"$ node {main_fn}.{ext}", "norm"),
-                (f"> Executing {main_fn}()...", "cmt"),
-                (f"[WARN] Process suspended at line {error_line_num}", "warn")
-            ]
-        else:
-            exec_logs = [
-                (f"$ node {main_fn}.{ext}", "norm"),
-                (f"> Executing {main_fn}()...", "cmt"),
-                ("[OK] Resolved cleanly (0 errors)", "ok")
-            ]
-
-    elif lang == "Python":
-        ext = "py"
-        code_rows.append([("def", "kw"), (" ", "norm"), (f"{main_fn}", "fn"), ("():", "norm")])
-        for idx, line in enumerate(lines):
-            clean = line.replace('"', "'")
-            var_name = extract_slug(line, f"node_{idx}")
-            low = line.lower()
-
-            if idx == 0:
-                code_rows.append([(f"    {var_name} ", "var"), ("= ", "norm"), ("False", "kw")])
-                code_rows.append([("    # ", "cmt"), (clean, "cmt")])
-            elif any(w in low for w in ["if", "not", "bukan", "jangan", "stop", "no"]):
-                code_rows.append([("    if not", "kw"), (f" {var_name}:", "var")])
-                code_rows.append([("        ", "norm"), ("emit", "fn"), (f'("{clean}")', "str")])
-            elif idx == len(lines) - 1:
-                code_rows.append([("    ", "norm"), ("world", "var"), (".", "norm"), ("execute", "fn"), (f'("{clean}")', "str")])
-            else:
-                code_rows.append([(f"    {var_name} ", "var"), ("= ", "norm"), (f'"{clean}"', "str")])
-
-        error_line_num = len(code_rows) + 1
-        if outcome == "paused":
-            code_rows.append([("    return", "kw"), (" ", "norm"), ('"SESSION_PAUSED"', "str")])
-        elif outcome == "error":
-            code_rows.append([("    raise", "kw"), (" ", "norm"), ("RuntimeError", "fn"), (f'("{error_var_name}")', "str")])
-        else:
-            code_rows.append([("    return", "kw"), (" ", "norm"), ('"REPAIRED"', "str")])
-
-        if outcome == "error":
-            exec_logs = [
-                (f"$ python3 {main_fn}.{ext}", "norm"),
-                (f"File \"{main_fn}.{ext}\", line {error_line_num}, in {main_fn}", "err"),
-                (f"RuntimeError: {error_var_name} -> EmptyPromise", "err"),
-                (f"Detail: \"{error_reason[:40]}\"", "warn")
-            ]
-        elif outcome == "paused":
-            exec_logs = [
-                (f"$ python3 {main_fn}.{ext}", "norm"),
-                (f"> Running {main_fn}()...", "cmt"),
-                (f"[PAUSED] Thread halted at line {error_line_num}", "warn")
-            ]
-        else:
-            exec_logs = [
-                (f"$ python3 {main_fn}.{ext}", "norm"),
-                (f"> Running {main_fn}()...", "cmt"),
-                ("[OK] Completed with 0 exceptions", "ok")
-            ]
-
-    else:
-        ext = "cpp"
-        code_rows.append([("int", "kw"), (" ", "norm"), (f"{main_fn}", "fn"), ("() {", "norm")])
-        for idx, line in enumerate(lines):
-            clean = line.replace('"', "'")
-            var_name = extract_slug(line, f"ptr_{idx}")
-            if idx == 0:
-                code_rows.append([("    bool", "kw"), (f" {var_name} ", "var"), ("= ", "norm"), ("false", "kw"), (";", "norm")])
-                code_rows.append([("    // ", "cmt"), (clean, "cmt")])
-            elif idx == len(lines) - 1:
-                code_rows.append([("    ", "norm"), ("kernel_exec", "fn"), (f'("{clean}")', "str"), (";", "norm")])
-            else:
-                code_rows.append([("    auto", "kw"), (f" {var_name} ", "var"), ("= ", "norm"), (f'"{clean}"', "str"), (";", "norm")])
-
-        error_line_num = len(code_rows) + 1
-        if outcome == "paused":
-            code_rows.append([("    return", "kw"), (" SESSION_PAUSED;", "var")])
-        elif outcome == "error":
-            code_rows.append([("    assert", "fn"), (f"({error_var_name} != nullptr);", "norm")])
-        else:
-            code_rows.append([("    return", "kw"), (" EXIT_SUCCESS;", "var")])
-        code_rows.append([("}", "norm")])
-
-        if outcome == "error":
-            exec_logs = [
-                (f"$ ./{main_fn} --run", "norm"),
-                (f"SEGFAULT at {main_fn}.{ext}:line {error_line_num}", "err"),
-                (f"Assertion `{error_var_name} != nullptr` failed", "err"),
-                (f"Dump: \"{error_reason[:40]}\"", "warn")
-            ]
-        elif outcome == "paused":
-            exec_logs = [
-                (f"$ ./{main_fn} --run", "norm"),
-                ("> Linking runtime modules...", "cmt"),
-                (f"[SUSPEND] SIGSTOP received at line {error_line_num}", "warn")
-            ]
-        else:
-            exec_logs = [
-                (f"$ ./{main_fn} --run", "norm"),
-                ("> Linking runtime modules...", "cmt"),
-                ("[SUCCESS] Binary exited cleanly (0)", "ok")
-            ]
-
-    err_line_to_highlight = error_line_num if outcome == "error" else None
-    return code_rows, exec_logs, f"{main_fn}.{ext}", err_line_to_highlight
+THEMES = {
+    "Cyberpunk City Night (Biru Neon - Hijau Terminal)": {
+        "sky_top": (4, 10, 24), "sky_bot": (10, 28, 52), "city_glow": (15, 115, 175),
+        "lamp_glow": (255, 180, 95), "kbd_led": (35, 165, 255),
+        "term_cmd": (75, 215, 245), "term_bar": (55, 245, 120), "term_txt": (220, 250, 255)
+    },
+    "Warm Lo-Fi Midnight (Lampu Meja Hangat - Cyan Glow)": {
+        "sky_top": (8, 8, 16), "sky_bot": (22, 18, 34), "city_glow": (95, 65, 145),
+        "lamp_glow": (255, 165, 70), "kbd_led": (255, 155, 65),
+        "term_cmd": (110, 235, 255), "term_bar": (255, 195, 85), "term_txt": (245, 245, 250)
+    },
+    "Matrix Hacker Room (Gelap Pekat - Hijau Neon)": {
+        "sky_top": (1, 6, 3), "sky_bot": (4, 18, 8), "city_glow": (0, 130, 50),
+        "lamp_glow": (40, 220, 100), "kbd_led": (0, 255, 85),
+        "term_cmd": (0, 255, 95), "term_bar": (120, 255, 145), "term_txt": (200, 255, 215)
+    }
+}
 
 @st.cache_resource
 def get_font(size, bold=False):
@@ -345,146 +89,262 @@ def get_font(size, bold=False):
             return ImageFont.truetype(p, size)
     return ImageFont.load_default()
 
-# --- RENDERER FRAME DI ATAS PRE-RENDERED BASE ---
-def render_code_frame(
-    base_bg, completed_rows, active_row, active_chars, cursor_on,
-    exec_logs, outcome, show_final_status, file_label, err_line_num, th, w=540, h=960
+# --- MEMBANGUN BACKGROUND SETUP MEJA PROGRAMMER 3D-ILLUSTRATED (540x960 PORTRAIT) ---
+def build_programmer_desk_scene(w, h, theme_key, custom_file=None):
+    # Koordinat area dalam layar monitor (x1, y1, x2, y2)
+    mon_screen = (64, 338, 476, 612)
+
+    if custom_file is not None:
+        img = Image.open(custom_file).convert("RGB")
+        # Fit ke kanvas 540x960 dengan latar gelap blur
+        bg_blur = img.resize((w, h)).filter(ImageFilter.GaussianBlur(radius=18))
+        bg_arr = (np.array(bg_blur, dtype=np.float32) * 0.45).astype(np.uint8)
+        canvas = Image.fromarray(bg_arr)
+
+        # Tempel gambar asli secara proporsional di tengah
+        scale = min(w / img.width, (h * 0.72) / img.height)
+        nw, nh = int(img.width * scale), int(img.height * scale)
+        resized = img.resize((nw, nh), Image.Resampling.LANCZOS)
+        ox = (w - nw) // 2
+        oy = (h - nh) // 2
+        canvas.paste(resized, (ox, oy))
+
+        # Area layar monitor di tengah gambar yang diunggah
+        sx1 = ox + int(nw * 0.14)
+        sy1 = oy + int(nh * 0.31)
+        sx2 = ox + int(nw * 0.86)
+        sy2 = oy + int(nh * 0.67)
+        draw = ImageDraw.Draw(canvas)
+        draw.rounded_rectangle([sx1, sy1, sx2, sy2], radius=8, fill=(5, 8, 12))
+        return canvas, (sx1, sy1, sx2, sy2)
+
+    th = THEMES[theme_key]
+    # 1. Langit malam + Gedung kota di balik jendela
+    y_grad = np.linspace(0, 1, h, dtype=np.float32)[:, None, None]
+    s_top = np.array(th["sky_top"], dtype=np.float32)
+    s_bot = np.array(th["sky_bot"], dtype=np.float32)
+    arr = np.broadcast_to(s_top * (1 - y_grad) + s_bot * y_grad, (h, w, 3)).copy()
+
+    # Cahaya kota dari jendela tengah
+    yy, xx = np.ogrid[:h, :w]
+    city_d = ((xx - w * 0.5) / (w * 0.38)) ** 2 + ((yy - h * 0.25) / (h * 0.22)) ** 2
+    arr += np.exp(-city_d * 2.0)[:, :, None] * np.array(th["city_glow"], dtype=np.float32) * 0.65
+
+    # Cahaya lampu meja hangat di sisi kanan
+    lamp_d = ((xx - w * 0.88) / (w * 0.25)) ** 2 + ((yy - h * 0.52) / (h * 0.22)) ** 2
+    arr += np.exp(-lamp_d * 2.4)[:, :, None] * np.array(th["lamp_glow"], dtype=np.float32) * 0.45
+
+    # Cahaya LED keyboard di bagian bawah
+    kbd_d = ((xx - w * 0.5) / (w * 0.42)) ** 2 + ((yy - h * 0.78) / (h * 0.10)) ** 2
+    arr += np.exp(-kbd_d * 2.5)[:, :, None] * np.array(th["kbd_led"], dtype=np.float32) * 0.50
+
+    base = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    draw = ImageDraw.Draw(base)
+
+    # 2. Siluet gedung-gedung pencakar langit & lampu jendela kota di luar jendela kamar
+    win_x1, win_y1, win_x2, win_y2 = 135, 35, 405, 340
+    draw.rectangle([win_x1, win_y1, win_x2, win_y2], fill=(6, 14, 28), outline=(18, 24, 34), width=6)
+    rng = np.random.default_rng(2026)
+    b_x = win_x1 + 8
+    while b_x < win_x2 - 20:
+        bw = int(rng.integers(24, 42))
+        bh = int(rng.integers(110, 230))
+        by = win_y2 - bh
+        draw.rectangle([b_x, by, min(win_x2 - 4, b_x + bw), win_y2], fill=(10, 22, 40))
+        # Lampu-lampu kecil gedung
+        for wy in range(by + 10, win_y2 - 12, 14):
+            for wx in range(b_x + 5, min(win_x2 - 8, b_x + bw - 5), 9):
+                if rng.random() > 0.55:
+                    draw.rectangle([wx, wy, wx + 3, wy + 5], fill=th["city_glow"])
+        b_x += bw + 6
+
+    # Palang jendela kamar
+    draw.line([(w // 2, win_y1), (w // 2, win_y2)], fill=(14, 18, 26), width=6)
+
+    # 3. Poster Dinding Estetik Kiri & Kanan ("KEEP CALM AND CODE ON </>")
+    f_post = get_font(12, bold=True)
+    f_post_sm = get_font(9)
+    # Poster Kiri
+    draw.rectangle([26, 75, 118, 215], fill=(10, 14, 22), outline=(45, 65, 90), width=3)
+    draw.text((46, 92), "KEEP", fill=(180, 215, 240), font=f_post)
+    draw.text((44, 110), "CALM", fill=(180, 215, 240), font=f_post)
+    draw.text((54, 128), "AND", fill=(110, 140, 165), font=f_post_sm)
+    draw.text((38, 144), "CODE ON", fill=(180, 215, 240), font=f_post)
+    draw.text((52, 166), "</>", fill=th["term_cmd"], font=f_post)
+
+    # Poster Kanan
+    draw.rectangle([422, 95, 514, 215], fill=(10, 14, 22), outline=(45, 65, 90), width=3)
+    draw.text((442, 122), "TRUST", fill=(180, 215, 240), font=f_post)
+    draw.text((440, 142), "PROCESS", fill=th["term_bar"], font=f_post_sm)
+    draw.text((454, 165), "{ }", fill=(180, 215, 240), font=f_post)
+
+    # 4. Meja Kayu Gelap & Stand Monitor
+    draw.polygon([(0, 665), (w, 665), (w, h), (0, h)], fill=(18, 13, 11))
+    draw.line([(0, 665), (w, 665)], fill=(45, 34, 28), width=3)
+    # Leher & Kaki Stand Monitor
+    draw.rectangle([245, 620, 295, 682], fill=(22, 26, 34))
+    draw.polygon([(195, 682), (345, 682), (365, 696), (175, 696)], fill=(30, 35, 45))
+
+    # 5. Monitor Utama Lebar (Bezel + Layar Hitam Pekat)
+    mx1, my1, mx2, my2 = 52, 326, 488, 624
+    draw.rounded_rectangle([mx1, my1, mx2, my2], radius=14, fill=(16, 20, 28), outline=(55, 70, 92), width=3)
+    sx1, sy1, sx2, sy2 = mon_screen
+    draw.rounded_rectangle([sx1, sy1, sx2, sy2], radius=8, fill=(4, 7, 11))
+
+    # 6. Cangkir Kopi Hitam dengan Logo </> Menyala di Kiri Bawah
+    draw.rounded_rectangle([32, 625, 108, 705], radius=10, fill=(14, 16, 20), outline=(40, 48, 60), width=2)
+    draw.arc([98, 642, 124, 688], start=270, end=90, fill=(40, 48, 60), width=5)
+    draw.text((52, 656), "</>", fill=th["kbd_led"], font=get_font(15, bold=True))
+
+    # 7. Lampu Meja di Kanan & Mini Robot Companion
+    draw.polygon([(475, 485), (535, 515), (515, 545), (460, 510)], fill=(25, 30, 38))
+    draw.ellipse([485, 518, 520, 542], fill=th["lamp_glow"])
+    # Mini Robot di Kanan Meja
+    draw.rounded_rectangle([442, 618, 502, 664], radius=14, fill=(32, 38, 48), outline=(70, 85, 105), width=2)
+    draw.rounded_rectangle([450, 628, 494, 652], radius=8, fill=(8, 12, 18))
+    draw.ellipse([456, 634, 468, 646], fill=th["term_cmd"])
+    draw.ellipse([476, 634, 488, 646], fill=th["term_cmd"])
+    draw.rounded_rectangle([452, 666, 492, 696], radius=8, fill=(28, 34, 44))
+
+    # 8. Keyboard Mekanikal dengan Backlight LED Menyala di Bawah Monitor
+    draw.polygon([(115, 725), (425, 725), (455, 815), (85, 815)], fill=(14, 17, 23), outline=(45, 60, 80), width=2)
+    for row_i in range(4):
+        ky = 735 + row_i * 18
+        margin = (3 - row_i) * 6
+        kx = 124 + margin
+        while kx < 416 - margin:
+            kw = 38 if (row_i == 3 and 210 < kx < 290) else 16
+            draw.rounded_rectangle([kx, ky, kx + kw, ky + 12], radius=2, fill=(22, 28, 38), outline=th["kbd_led"], width=1)
+            kx += kw + 4
+
+    return base, mon_screen
+
+def detect_outcome(text, choice):
+    if choice.startswith("ERROR"):
+        return "error"
+    if choice.startswith("PAUSED"):
+        return "paused"
+    if choice.startswith("SUCCESS"):
+        return "success"
+    low = text.lower()
+    if any(w in low for w in ["error", "fail", "crash", "gagal", "rusak", "hancur", "hilang", "putus", "kecewa", "sakit"]):
+        return "error"
+    if any(w in low for w in ["pause", "rest", "break", "world run", "stop", "istirahat", "jeda"]):
+        return "paused"
+    return "success"
+
+def extract_slug(text, fallback="process"):
+    words = re.findall(r"[a-zA-Z]{3,}", text.lower())
+    stop = {"the", "and", "for", "are", "but", "not", "you", "all", "just", "some", "that", "with", "yang", "dan", "ini", "itu"}
+    f = [w for w in words if w not in stop]
+    return f"{f[0]}_{f[1]}" if len(f) >= 2 else (f[0] if f else fallback)
+
+# --- RENDERER FRAME MONITOR DENGAN EFEK NEON GLOW & PROGRESS BAR ---
+def render_monitor_frame(
+    base_scene, mon_rect, phase, progress_pct,
+    boot_lines, typed_lines, active_line, cursor_on,
+    outcome, error_info, th, w=540, h=960
 ):
-    img = base_bg.copy()
-    draw = ImageDraw.Draw(img)
+    img = base_scene.copy()
+    sx1, sy1, sx2, sy2 = mon_rect
+    sw = sx2 - sx1
+    sh = sy2 - sy1
 
-    mx, my = 24, 72
-    ww, wh = w - (mx * 2), h - (my * 2)
+    # Layer khusus isi layar monitor agar teks memiliki efek Neon Glow asli
+    scr_layer = Image.new("RGB", (sw, sh), (4, 7, 11))
+    s_draw = ImageDraw.Draw(scr_layer)
 
-    border_col = th["border"]
-    if show_final_status:
-        if outcome == "error":
-            border_col = (255, 65, 80)
-        elif outcome == "paused":
-            border_col = (255, 195, 45)
-        else:
-            border_col = (60, 245, 135)
+    # Jika fase akhir ERROR, beri pendar merah halus pada layar monitor
+    if phase == "ending" and outcome == "error":
+        s_draw.rectangle([0, 0, sw, sh], fill=(28, 6, 10))
+        s_draw.rounded_rectangle([1, 1, sw - 2, sh - 2], radius=8, outline=(255, 65, 75), width=2)
 
-    # Garis border luar rounded glowing
-    draw.rounded_rectangle([mx, my, mx + ww, my + wh], radius=16, outline=border_col, width=2)
+    f_boot = get_font(14, bold=True)
+    f_pct = get_font(16, bold=True)
+    f_msg = get_font(14)
+    f_err = get_font(12, bold=True)
 
-    # Tombol window macOS + Nama File
-    hh = 40
-    draw.line([(mx + 1, my + hh), (mx + ww - 1, my + hh)], fill=tuple(int(c * 0.4) for c in th["border"]), width=1)
-    draw.ellipse([mx + 16, my + 14, mx + 26, my + 24], fill=(255, 95, 86))
-    draw.ellipse([mx + 32, my + 14, mx + 42, my + 24], fill=(255, 189, 46))
-    draw.ellipse([mx + 48, my + 14, mx + 58, my + 24], fill=(39, 201, 63))
+    if phase == "boot":
+        # Tampilan persis seperti gambar referensi: $ booting... + [ 45% ] [████░░]
+        cy = 28
+        for bl in boot_lines:
+            s_draw.text((22, cy), bl, fill=th["term_cmd"], font=f_boot)
+            cy += 30
 
-    f_hdr = get_font(13, bold=True)
-    draw.text((mx + 74, my + 12), file_label, fill=th["norm"], font=f_hdr)
+        # Progress bar [ XX% ] [████████░░░░]
+        bar_y = cy + 16
+        pct_txt = f"[ {progress_pct:3d}% ]"
+        s_draw.text((22, bar_y), pct_txt, fill=th["term_bar"], font=f_pct)
 
-    f_code = get_font(16)
-    f_num = get_font(13)
+        bx1 = 118
+        bx2 = sw - 24
+        by1 = bar_y - 2
+        by2 = bar_y + 20
+        s_draw.rounded_rectangle([bx1, by1, bx2, by2], radius=4, outline=(190, 210, 225), width=2)
+        fill_w = int((bx2 - bx1 - 6) * (progress_pct / 100.0))
+        if fill_w > 0:
+            s_draw.rounded_rectangle([bx1 + 3, by1 + 3, bx1 + 3 + fill_w, by2 - 3], radius=2, fill=th["term_bar"])
 
-    gutter_x = mx + 14
-    code_x = mx + 46
-    max_code_w = ww - 60
-    line_h = 24
-    max_y = my + wh - 205
+    else:
+        # Fase pengetikan pesan & hasil akhir di dalam monitor
+        cy = 18
+        max_w = sw - 36
+        for idx, line_txt in enumerate(typed_lines):
+            is_last_err = (phase == "ending" and outcome == "error" and idx == len(typed_lines) - 1)
+            col = (255, 90, 100) if is_last_err else (th["term_cmd"] if idx == 0 else th["term_txt"])
 
-    def draw_tokens(row_tokens, line_num, y_pos, char_limit=None, draw_cursor=False):
-        is_err_row = (show_final_status and err_line_num == line_num)
-        if is_err_row:
-            draw.rectangle([mx + 3, y_pos - 2, mx + ww - 3, y_pos + line_h], fill=(80, 15, 22))
-            draw.text((gutter_x, y_pos + 2), f"{line_num:2d}", fill=(255, 90, 100), font=f_num)
-        else:
-            draw.text((gutter_x, y_pos + 2), f"{line_num:2d}", fill=th["cmt"], font=f_num)
+            # Word wrap presisi di dalam monitor
+            words = line_txt.split(" ")
+            cur = ""
+            for wd in words:
+                test = cur + (" " if cur else "") + wd
+                if s_draw.textbbox((0, 0), test, font=f_msg)[2] <= max_w:
+                    cur = test
+                else:
+                    if cy < sh - 75:
+                        s_draw.text((18, cy), cur, fill=col, font=f_msg)
+                        cy += 21
+                    cur = wd
+            if cur and cy < sh - 75:
+                s_draw.text((18, cy), cur, fill=col, font=f_msg)
+                cy += 24
 
-        cx = code_x
-        cy = y_pos
-        count = 0
+        if active_line is not None and cy < sh - 75:
+            disp = active_line + ("█" if cursor_on else " ")
+            words = disp.split(" ")
+            cur = ""
+            for wd in words:
+                test = cur + (" " if cur else "") + wd
+                if s_draw.textbbox((0, 0), test, font=f_msg)[2] <= max_w:
+                    cur = test
+                else:
+                    s_draw.text((18, cy), cur, fill=th["term_txt"], font=f_msg)
+                    cy += 21
+                    cur = wd
+            if cur:
+                s_draw.text((18, cy), cur, fill=th["term_txt"], font=f_msg)
 
-        for txt, role in row_tokens:
-            if char_limit is not None:
-                rem = char_limit - count
-                if rem <= 0:
-                    break
-                piece = txt[:rem]
+        # Status Bar / Log Error di bagian bawah layar monitor saat ending
+        if phase == "ending":
+            by1, by2 = sh - 64, sh - 12
+            if outcome == "error":
+                s_draw.rounded_rectangle([14, by1, sw - 14, by2], radius=6, fill=(65, 12, 18), outline=(255, 75, 85), width=2)
+                s_draw.text((22, by1 + 6), f"✖ {error_info['title']}", fill=(255, 95, 105), font=f_err)
+                s_draw.text((22, by1 + 26), error_info["detail"], fill=(255, 185, 190), font=get_font(11))
+            elif outcome == "paused":
+                s_draw.rounded_rectangle([14, by1 + 10, sw - 14, by2], radius=6, fill=(55, 42, 8), outline=(255, 200, 50), width=2)
+                s_draw.text((24, by1 + 20), "[||] SESSION PAUSED // STANDBY", fill=(255, 210, 70), font=f_err)
             else:
-                piece = txt
+                s_draw.rounded_rectangle([14, by1 + 10, sw - 14, by2], radius=6, fill=(10, 55, 25), outline=(65, 255, 130), width=2)
+                s_draw.text((24, by1 + 20), "[100%] SYSTEM REPAIRED // OK", fill=(75, 255, 140), font=f_err)
 
-            col = (255, 120, 130) if is_err_row else th.get(role, th["norm"])
-            for ch in piece:
-                cw = draw.textbbox((0, 0), ch, font=f_code)[2]
-                if cx + cw > code_x + max_code_w:
-                    cx = code_x + 18
-                    cy += line_h
-                    if is_err_row:
-                        draw.rectangle([mx + 3, cy - 2, mx + ww - 3, cy + line_h], fill=(80, 15, 22))
-                draw.text((cx, cy), ch, fill=col, font=f_code)
-                cx += cw
-                count += 1
+    # Efek Neon Text Glow pada layar monitor
+    glow = scr_layer.filter(ImageFilter.GaussianBlur(radius=4))
+    scr_glowed = Image.fromarray(
+        np.clip(np.array(scr_layer, dtype=np.int16) + (np.array(glow, dtype=np.int16) * 0.65).astype(np.int16), 0, 255).astype(np.uint8)
+    )
 
-        if draw_cursor and cursor_on:
-            draw.rectangle([cx + 1, cy + 2, cx + 10, cy + 18], fill=th["fn"])
-
-        return cy + line_h
-
-    curr_y = my + hh + 16
-    ln = 1
-    for r_tokens in completed_rows:
-        if curr_y > max_y:
-            break
-        curr_y = draw_tokens(r_tokens, ln, curr_y)
-        ln += 1
-
-    if active_row is not None and curr_y <= max_y:
-        curr_y = draw_tokens(active_row, ln, curr_y, char_limit=active_chars, draw_cursor=True)
-
-    # Panel Terminal Log Bawah
-    out_top = my + wh - 190
-    draw.line([(mx + 14, out_top), (mx + ww - 14, out_top)], fill=tuple(int(c * 0.45) for c in th["border"]), width=1)
-
-    f_out = get_font(13)
-    log_colors = {
-        "norm": th["norm"],
-        "cmt": th["cmt"],
-        "err": (255, 85, 95),
-        "warn": (255, 205, 70),
-        "ok": (75, 245, 140)
-    }
-
-    oy = out_top + 10
-    for log_txt, log_kind in exec_logs:
-        l_col = log_colors.get(log_kind, th["cmt"])
-        words = log_txt.split(" ")
-        cur_l = ""
-        for wd in words:
-            test = cur_l + (" " if cur_l else "") + wd
-            if draw.textbbox((0, 0), test, font=f_out)[2] <= (ww - 36):
-                cur_l = test
-            else:
-                draw.text((mx + 16, oy), cur_l, fill=l_col, font=f_out)
-                oy += 17
-                cur_l = "  " + wd
-        if cur_l:
-            draw.text((mx + 16, oy), cur_l, fill=l_col, font=f_out)
-            oy += 19
-
-    if show_final_status:
-        bx1, bx2 = mx + 16, mx + ww - 16
-        by2 = my + wh - 14
-        by1 = by2 - 42
-
-        if outcome == "error":
-            bg_b, fg_b, status_lbl = (75, 14, 22), (255, 80, 90), f"✖ ERROR AT LINE {err_line_num} // EXIT 1"
-        elif outcome == "paused":
-            bg_b, fg_b, status_lbl = (60, 44, 10), (255, 205, 55), "⏸ EXIT CODE 0 // SESSION PAUSED"
-        else:
-            bg_b, fg_b, status_lbl = (12, 60, 28), (65, 255, 130), "✔ EXIT CODE 0 // SYSTEM REPAIRED"
-
-        draw.rounded_rectangle([bx1, by1, bx2, by2], radius=10, fill=bg_b, outline=fg_b, width=2)
-        f_st = get_font(15, bold=True)
-        bb = draw.textbbox((0, 0), status_lbl, font=f_st)
-        tx = bx1 + ((bx2 - bx1) - (bb[2] - bb[0])) // 2
-        ty = by1 + ((by2 - by1) - (bb[3] - bb[1])) // 2 - 2
-        draw.text((tx, ty), status_lbl, fill=fg_b, font=f_st)
-
+    img.paste(scr_glowed, (sx1, sy1))
     return img.tobytes()
 
 def build_audio_wav(duration, wav_path, key_frames, fps, enable_sound=True):
@@ -536,8 +396,9 @@ def build_audio_wav(duration, wav_path, key_frames, fps, enable_sound=True):
         wf.setframerate(sr)
         wf.writeframes(pcm16.tobytes())
 
-if st.button("🎬 Generate Video Estetik", type="primary", use_container_width=True):
-    if not user_words.strip():
+if st.button("🎬 Generate Video Desk Setup", type="primary", use_container_width=True):
+    raw_lines = [l.strip() for l in user_words.strip().split("\n") if l.strip()]
+    if not raw_lines:
         st.warning("Teks tidak boleh kosong!")
     else:
         if "last_mp4" in st.session_state and os.path.exists(st.session_state["last_mp4"]):
@@ -547,28 +408,45 @@ if st.button("🎬 Generate Video Estetik", type="primary", use_container_width=
                 pass
 
         outcome = detect_outcome(user_words, ending_mode)
-        code_rows, exec_logs, file_label, err_line_num = build_dynamic_code_tokens(user_words, lang_mode, outcome)
+        slug = extract_slug(raw_lines[0], "wisdom")
+        th_active = THEMES.get(setup_theme, THEMES["Cyberpunk City Night (Biru Neon - Hijau Terminal)"])
 
-        with st.spinner("Merender background glow & animasi kode..."):
+        # Siapkan detail error spesifik jika outcome == "error"
+        err_line_idx = len(raw_lines) + 1
+        err_var = extract_slug(raw_lines[-1], "promise_node")
+        error_info = {
+            "title": f"ERR_AT_LINE_{err_line_idx}: {err_var}_failed",
+            "detail": f"File '{slug}.exe' line {err_line_idx} -> NullPromiseException"
+        }
+
+        with st.spinner("Merender setup meja malam & animasi monitor..."):
             w, h = 540, 960
-            base_bg = create_aesthetic_base(w, h, th)
+            base_scene, mon_rect = build_programmer_desk_scene(w, h, setup_theme, custom_file=uploaded_bg)
             f_per_char = max(1, round(fps / typing_speed))
 
+            boot_steps = [
+                f"$ booting {slug}.exe...",
+                "$ initializing mind...",
+                "$ loading message..."
+            ]
+            boot_frames = int(fps * 1.6)
+
+            script_lines = [f"$ exec {slug}.sh"] + [f"> {l}" for l in raw_lines]
+
             key_frames = []
-            sim_f = int(fps * 0.25)
-            for idx, r_tokens in enumerate(code_rows):
-                full_s = "".join(t[0] for t in r_tokens)
+            sim_f = boot_frames
+            for idx, line_s in enumerate(script_lines):
                 if idx == 0:
                     sim_f += int(fps * 0.25)
                 else:
-                    for ci in range(1, len(full_s) + 1):
-                        if full_s[ci - 1] != " ":
+                    for ci in range(1, len(line_s) + 1):
+                        if line_s[ci - 1] != " ":
                             key_frames.append(sim_f)
                         sim_f += f_per_char
                     sim_f += int(fps * 0.15)
 
-            run_frames = len(exec_logs) * int(fps * 0.35) + int(fps * 1.2)
-            total_frames = sim_f + run_frames
+            end_frames = int(fps * 1.3)
+            total_frames = sim_f + end_frames
             total_dur = max(1.0, total_frames / fps)
 
             wav_tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
@@ -593,31 +471,55 @@ if st.button("🎬 Generate Video Estetik", type="primary", use_container_width=
 
             proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
             try:
+                # 1. Fase Booting & Progress Bar 0% -> 100%
+                for bf in range(boot_frames):
+                    pct = min(100, int((bf / max(1, boot_frames - 1)) * 100))
+                    visible_boots = boot_steps[: 1 + min(2, int((bf / boot_frames) * 3))]
+                    proc.stdin.write(
+                        render_monitor_frame(
+                            base_scene, mon_rect, "boot", pct,
+                            visible_boots, [], None, False, outcome, error_info, th_active, w, h
+                        )
+                    )
+
+                # 2. Fase Pengetikan Kata-Kata di Layar Monitor
                 completed = []
-                for f in range(int(fps * 0.25)):
-                    proc.stdin.write(render_code_frame(base_bg, completed, [], 0, (f // 4) % 2 == 0, [], outcome, False, file_label, err_line_num, th, w, h))
-
-                for idx, r_tokens in enumerate(code_rows):
-                    full_s = "".join(t[0] for t in r_tokens)
+                for idx, line_s in enumerate(script_lines):
                     if idx == 0:
-                        completed.append(r_tokens)
+                        completed.append(line_s)
                         for _ in range(int(fps * 0.25)):
-                            proc.stdin.write(render_code_frame(base_bg, completed, None, 0, False, [], outcome, False, file_label, err_line_num, th, w, h))
+                            proc.stdin.write(
+                                render_monitor_frame(
+                                    base_scene, mon_rect, "typing", 100,
+                                    [], completed, None, False, outcome, error_info, th_active, w, h
+                                )
+                            )
                     else:
-                        for ci in range(1, len(full_s) + 1):
+                        for ci in range(1, len(line_s) + 1):
                             for _ in range(f_per_char):
-                                proc.stdin.write(render_code_frame(base_bg, completed, r_tokens, ci, True, [], outcome, False, file_label, err_line_num, th, w, h))
-                        completed.append(r_tokens)
+                                proc.stdin.write(
+                                    render_monitor_frame(
+                                        base_scene, mon_rect, "typing", 100,
+                                        [], completed, line_s[:ci], True, outcome, error_info, th_active, w, h
+                                    )
+                                )
+                        completed.append(line_s)
                         for _ in range(int(fps * 0.15)):
-                            proc.stdin.write(render_code_frame(base_bg, completed, None, 0, False, [], outcome, False, file_label, err_line_num, th, w, h))
+                            proc.stdin.write(
+                                render_monitor_frame(
+                                    base_scene, mon_rect, "typing", 100,
+                                    [], completed, None, False, outcome, error_info, th_active, w, h
+                                )
+                            )
 
-                shown_logs = []
-                for l_idx, l_entry in enumerate(exec_logs):
-                    shown_logs.append(l_entry)
-                    is_last = (l_idx == len(exec_logs) - 1)
-                    hold = int(fps * 1.2) if is_last else int(fps * 0.35)
-                    for _ in range(hold):
-                        proc.stdin.write(render_code_frame(base_bg, completed, None, 0, False, shown_logs, outcome, is_last, file_label, err_line_num, th, w, h))
+                # 3. Fase Ending (Error log spesifik / Paused / Success)
+                for _ in range(end_frames):
+                    proc.stdin.write(
+                        render_monitor_frame(
+                            base_scene, mon_rect, "ending", 100,
+                            [], completed, None, False, outcome, error_info, th_active, w, h
+                        )
+                    )
 
                 proc.stdin.close()
                 proc.wait()
@@ -628,17 +530,16 @@ if st.button("🎬 Generate Video Estetik", type="primary", use_container_width=
 
             if os.path.exists(mp4_path) and os.path.getsize(mp4_path) > 0:
                 st.session_state["last_mp4"] = mp4_path
-                st.session_state["last_file"] = file_label
                 st.session_state["last_outcome"] = outcome
 
 if "last_mp4" in st.session_state and os.path.exists(st.session_state["last_mp4"]):
-    st.success(f"✅ Video **{st.session_state['last_file']}** siap!")
+    st.success(f"✅ Video meja programmer siap! (Status: **{st.session_state['last_outcome'].upper()}**)")
     st.video(st.session_state["last_mp4"])
     with open(st.session_state["last_mp4"], "rb") as f:
         st.download_button(
             label="⬇️ Download Video MP4",
             data=f.read(),
-            file_name=f"aesthetic_{st.session_state['last_file']}.mp4",
+            file_name=f"desk_coder_{st.session_state['last_outcome']}.mp4",
             mime="video/mp4",
             use_container_width=True
         )
