@@ -11,9 +11,22 @@ import os
 st.set_page_config(page_title="Programmer Desk Code Generator", page_icon="🖥️", layout="centered")
 
 st.title("🖥️ Programmer Desk Code Generator")
-st.markdown("Tulis kalimat biasa → otomatis diubah menjadi **kode pemrograman asli** (*syntax highlighting*) di layar monitor setup malam hari.")
+st.markdown("Tulis kalimat biasa → pilih dari **10 bahasa pemrograman**, otomatis dirangkai menjadi sintaks asli lengkap dengan log error spesifiknya.")
 
-# --- PILIHAN SETUP BACKGROUND, BAHASA KODE & ENDING ---
+LANGUAGES = [
+    "JavaScript (.js)",
+    "TypeScript (.ts)",
+    "Python (.py)",
+    "C++ (.cpp)",
+    "Java (.java)",
+    "Go / Golang (.go)",
+    "Rust (.rs)",
+    "PHP (.php)",
+    "C# (.cs)",
+    "Kotlin (.kt)",
+    "Bash Shell (.sh)"
+]
+
 col1, col2, col3 = st.columns(3)
 with col1:
     setup_theme = st.selectbox(
@@ -26,15 +39,9 @@ with col1:
         ]
     )
 with col2:
-    lang_mode = st.selectbox(
-        "2. Bahasa Kode:",
-        ["JavaScript / TS", "Python", "C++"]
-    )
+    lang_mode = st.selectbox("2. Bahasa Kode (11 Pilihan):", LANGUAGES)
 with col3:
-    ending_mode = st.selectbox(
-        "3. Hasil Akhir:",
-        ["Auto-Deteksi", "ERROR", "PAUSED", "SUCCESS"]
-    )
+    ending_mode = st.selectbox("3. Hasil Akhir:", ["Auto-Deteksi", "ERROR", "PAUSED", "SUCCESS"])
 
 uploaded_bg = None
 if setup_theme == "Upload Gambar Meja Sendiri":
@@ -218,26 +225,32 @@ def extract_slug(text, fallback="process"):
     f = [w for w in words if w not in stop]
     return f"{f[0]}_{f[1]}" if len(f) >= 2 else (f[0] if f else fallback)
 
-# --- KONVERSI KALIMAT MENJADI TOKEN KODE ASLI (SYNTAX HIGHLIGHTING) ---
+def to_pascal(slug):
+    return "".join(w.capitalize() for w in slug.split("_"))
+
+# --- KONVERSI KALIMAT KE 11 BAHASA PEMROGRAMAN ---
 def build_code_tokens(raw_text, lang, outcome):
     lines = [l.strip() for l in raw_text.strip().split("\n") if l.strip()]
     if not lines:
         return [], "script.js", {}
 
     main_fn = extract_slug(lines[0], "reality_check")
-    code_rows = []
+    cls_name = to_pascal(main_fn)
     err_var = extract_slug(lines[-1], "promise_state")
+    code_rows = []
 
-    if lang == "JavaScript / TS":
-        ext = "js"
-        code_rows.append([("async function", "kw"), (" ", "norm"), (f"{main_fn}", "fn"), ("() {", "norm")])
+    if lang in ("JavaScript (.js)", "TypeScript (.ts)"):
+        is_ts = "TypeScript" in lang
+        ext = "ts" if is_ts else "js"
+        sig = f"(): Promise<void> {{" if is_ts else "() {"
+        code_rows.append([("async function", "kw"), (" ", "norm"), (main_fn, "fn"), (sig, "norm")])
         for idx, line in enumerate(lines):
             clean = line.replace('"', "'")
             vname = extract_slug(line, f"var_{idx}")
             low = line.lower()
-
             if idx == 0:
-                code_rows.append([("  const", "kw"), (f" {vname} ", "var"), ("= ", "norm"), ("false", "kw"), (";", "norm")])
+                t_ann = ": boolean" if is_ts else ""
+                code_rows.append([("  const", "kw"), (f" {vname}{t_ann} ", "var"), ("= ", "norm"), ("false", "kw"), (";", "norm")])
                 code_rows.append([("  // ", "cmt"), (clean, "cmt")])
             elif any(w in low for w in ["if", "not", "bukan", "jangan", "stop", "no"]):
                 code_rows.append([("  if", "kw"), (" (!", "norm"), (vname, "var"), (") ", "norm"), ("warn", "fn"), (f'("{clean}")', "str"), (";", "norm")])
@@ -246,7 +259,7 @@ def build_code_tokens(raw_text, lang, outcome):
             else:
                 code_rows.append([("  let", "kw"), (f" {vname} ", "var"), ("= ", "norm"), (f'"{clean}"', "str"), (";", "norm")])
 
-        err_line_num = len(code_rows) + 1
+        err_line = len(code_rows) + 1
         if outcome == "error":
             code_rows.append([("  throw new", "kw"), (" ", "norm"), ("Error", "fn"), (f'("{err_var}_null")', "str"), (";", "norm")])
         elif outcome == "paused":
@@ -254,24 +267,17 @@ def build_code_tokens(raw_text, lang, outcome):
         else:
             code_rows.append([("  return", "kw"), (" ", "norm"), ('"SYSTEM_OK"', "str"), (";", "norm")])
         code_rows.append([("}", "norm")])
+        err_info = {"err_line": err_line, "line1": f"✖ Error: {err_var}_null (Line {err_line:02d})", "line2": f"at {main_fn} ({main_fn}.{ext}:{err_line}:9)", "line3": f"Cause: \"{lines[-1]}\""}
 
-        err_info = {
-            "err_line": err_line_num,
-            "line1": f"✖ Error: {err_var}_null (Line {err_line_num:02d})",
-            "line2": f"at {main_fn} ({main_fn}.{ext}:{err_line_num}:9)",
-            "line3": f"Cause: \"{lines[-1]}\""
-        }
-
-    elif lang == "Python":
+    elif lang == "Python (.py)":
         ext = "py"
-        code_rows.append([("def", "kw"), (" ", "norm"), (f"{main_fn}", "fn"), ("():", "norm")])
+        code_rows.append([("def", "kw"), (" ", "norm"), (main_fn, "fn"), ("() -> None:", "norm")])
         for idx, line in enumerate(lines):
             clean = line.replace('"', "'")
             vname = extract_slug(line, f"node_{idx}")
             low = line.lower()
-
             if idx == 0:
-                code_rows.append([(f"    {vname} ", "var"), ("= ", "norm"), ("False", "kw")])
+                code_rows.append([(f"    {vname}", "var"), (": bool = ", "norm"), ("False", "kw")])
                 code_rows.append([("    # ", "cmt"), (clean, "cmt")])
             elif any(w in low for w in ["if", "not", "bukan", "jangan", "stop", "no"]):
                 code_rows.append([("    if not", "kw"), (f" {vname}: ", "var"), ("log", "fn"), (f'("{clean}")', "str")])
@@ -280,24 +286,18 @@ def build_code_tokens(raw_text, lang, outcome):
             else:
                 code_rows.append([(f"    {vname} ", "var"), ("= ", "norm"), (f'"{clean}"', "str")])
 
-        err_line_num = len(code_rows) + 1
+        err_line = len(code_rows) + 1
         if outcome == "error":
             code_rows.append([("    raise", "kw"), (" ", "norm"), ("RuntimeError", "fn"), (f'("{err_var}")', "str")])
         elif outcome == "paused":
             code_rows.append([("    return", "kw"), (" ", "norm"), ('"SESSION_PAUSED"', "str")])
         else:
             code_rows.append([("    return", "kw"), (" ", "norm"), ('"SYSTEM_OK"', "str")])
+        err_info = {"err_line": err_line, "line1": f"✖ RuntimeError: {err_var} (Line {err_line:02d})", "line2": f"File \"{main_fn}.py\", line {err_line}, in {main_fn}", "line3": f"Cause: \"{lines[-1]}\""}
 
-        err_info = {
-            "err_line": err_line_num,
-            "line1": f"✖ RuntimeError: {err_var} (Line {err_line_num:02d})",
-            "line2": f"File \"{main_fn}.{ext}\", line {err_line_num}, in {main_fn}",
-            "line3": f"Cause: \"{lines[-1]}\""
-        }
-
-    else:  # C++
+    elif lang == "C++ (.cpp)":
         ext = "cpp"
-        code_rows.append([("int", "kw"), (" ", "norm"), (f"{main_fn}", "fn"), ("() {", "norm")])
+        code_rows.append([("int", "kw"), (" ", "norm"), (main_fn, "fn"), ("() {", "norm")])
         for idx, line in enumerate(lines):
             clean = line.replace('"', "'")
             vname = extract_slug(line, f"ptr_{idx}")
@@ -309,7 +309,7 @@ def build_code_tokens(raw_text, lang, outcome):
             else:
                 code_rows.append([("    auto", "kw"), (f" {vname} ", "var"), ("= ", "norm"), (f'"{clean}"', "str"), (";", "norm")])
 
-        err_line_num = len(code_rows) + 1
+        err_line = len(code_rows) + 1
         if outcome == "error":
             code_rows.append([("    assert", "fn"), (f"({err_var} != nullptr);", "norm")])
         elif outcome == "paused":
@@ -317,17 +317,179 @@ def build_code_tokens(raw_text, lang, outcome):
         else:
             code_rows.append([("    return", "kw"), (" EXIT_SUCCESS;", "var")])
         code_rows.append([("}", "norm")])
+        err_info = {"err_line": err_line, "line1": f"✖ SEGFAULT at {main_fn}.cpp (Line {err_line:02d})", "line2": f"Assertion `{err_var} != nullptr` failed", "line3": f"Cause: \"{lines[-1]}\""}
 
-        err_info = {
-            "err_line": err_line_num,
-            "line1": f"✖ SEGFAULT at {main_fn}.{ext} (Line {err_line_num:02d})",
-            "line2": f"Assertion `{err_var} != nullptr` failed",
-            "line3": f"Cause: \"{lines[-1]}\""
-        }
+    elif lang == "Java (.java)":
+        ext = "java"
+        code_rows.append([("public class", "kw"), (" ", "norm"), (cls_name, "fn"), (" {", "norm")])
+        code_rows.append([("  public static void", "kw"), (" ", "norm"), ("main", "fn"), ("() {", "norm")])
+        for idx, line in enumerate(lines):
+            clean = line.replace('"', "'")
+            vname = extract_slug(line, f"val_{idx}")
+            if idx == 0:
+                code_rows.append([("    boolean", "kw"), (f" {vname} ", "var"), ("= ", "norm"), ("false", "kw"), (";", "norm")])
+                code_rows.append([("    // ", "cmt"), (clean, "cmt")])
+            elif idx == len(lines) - 1:
+                code_rows.append([("    ", "norm"), ("System.out.println", "fn"), (f'("{clean}")', "str"), (";", "norm")])
+            else:
+                code_rows.append([("    String", "kw"), (f" {vname} ", "var"), ("= ", "norm"), (f'"{clean}"', "str"), (";", "norm")])
 
-    return code_rows, f"{main_fn}.{ext}", err_info
+        err_line = len(code_rows) + 1
+        if outcome == "error":
+            code_rows.append([("    throw new", "kw"), (" ", "norm"), ("NullPointerException", "fn"), (f'("{err_var}")', "str"), (";", "norm")])
+        elif outcome == "paused":
+            code_rows.append([("    ", "norm"), ("Thread.sleep", "fn"), ("(PAUSE_MODE);", "var")])
+        else:
+            code_rows.append([("    ", "norm"), ("System.exit", "fn"), ("(0);", "norm")])
+        code_rows.append([("  }", "norm")])
+        code_rows.append([("}", "norm")])
+        err_info = {"err_line": err_line, "line1": f"✖ NullPointerException (Line {err_line:02d})", "line2": f"at {cls_name}.main({cls_name}.java:{err_line})", "line3": f"Cause: \"{lines[-1]}\""}
 
-# --- RENDERER FRAME MONITOR (CODE EDITOR + AUTO-SCROLL + NEON GLOW) ---
+    elif lang == "Go / Golang (.go)":
+        ext = "go"
+        code_rows.append([("func", "kw"), (" ", "norm"), (main_fn, "fn"), ("() {", "norm")])
+        for idx, line in enumerate(lines):
+            clean = line.replace('"', "'")
+            vname = extract_slug(line, f"state_{idx}")
+            if idx == 0:
+                code_rows.append([(f"    {vname} ", "var"), (":= ", "norm"), ("false", "kw")])
+                code_rows.append([("    // ", "cmt"), (clean, "cmt")])
+            elif idx == len(lines) - 1:
+                code_rows.append([("    ", "norm"), ("fmt.Println", "fn"), (f'("{clean}")', "str")])
+            else:
+                code_rows.append([(f"    {vname} ", "var"), (":= ", "norm"), (f'"{clean}"', "str")])
+
+        err_line = len(code_rows) + 1
+        if outcome == "error":
+            code_rows.append([("    ", "norm"), ("panic", "fn"), (f'("{err_var}: nil pointer")', "str")])
+        elif outcome == "paused":
+            code_rows.append([("    return", "kw"), (" ", "norm"), ("SessionPaused", "var")])
+        else:
+            code_rows.append([("    return", "kw"), (" ", "norm"), ("nil", "kw")])
+        code_rows.append([("}", "norm")])
+        err_info = {"err_line": err_line, "line1": f"✖ panic: {err_var} (Line {err_line:02d})", "line2": f"goroutine 1 [running]: main.{main_fn}()", "line3": f"Cause: \"{lines[-1]}\""}
+
+    elif lang == "Rust (.rs)":
+        ext = "rs"
+        code_rows.append([("fn", "kw"), (" ", "norm"), (main_fn, "fn"), ("() {", "norm")])
+        for idx, line in enumerate(lines):
+            clean = line.replace('"', "'")
+            vname = extract_slug(line, f"item_{idx}")
+            if idx == 0:
+                code_rows.append([("    let", "kw"), (f" {vname}: bool ", "var"), ("= ", "norm"), ("false", "kw"), (";", "norm")])
+                code_rows.append([("    // ", "cmt"), (clean, "cmt")])
+            elif idx == len(lines) - 1:
+                code_rows.append([("    ", "norm"), ("println!", "fn"), (f'("{clean}")', "str"), (";", "norm")])
+            else:
+                code_rows.append([("    let", "kw"), (f" {vname} ", "var"), ("= ", "norm"), (f'"{clean}"', "str"), (";", "norm")])
+
+        err_line = len(code_rows) + 1
+        if outcome == "error":
+            code_rows.append([("    ", "norm"), ("panic!", "fn"), (f'("unwrap on None: {err_var}")', "str"), (";", "norm")])
+        elif outcome == "paused":
+            code_rows.append([("    return", "kw"), (" ", "norm"), ("State::Paused", "var"), (";", "norm")])
+        else:
+            code_rows.append([("    ", "norm"), ("Ok", "fn"), ("(())", "norm")])
+        code_rows.append([("}", "norm")])
+        err_info = {"err_line": err_line, "line1": f"✖ thread 'main' panicked (Line {err_line:02d})", "line2": f"src/{main_fn}.rs:{err_line}:5 -> Option::unwrap()", "line3": f"Cause: \"{lines[-1]}\""}
+
+    elif lang == "PHP (.php)":
+        ext = "php"
+        code_rows.append([("<?php", "kw"), (" ", "norm"), ("function", "kw"), (" ", "norm"), (main_fn, "fn"), ("() {", "norm")])
+        for idx, line in enumerate(lines):
+            clean = line.replace('"', "'")
+            vname = extract_slug(line, f"data_{idx}")
+            if idx == 0:
+                code_rows.append([(f"  ${vname} ", "var"), ("= ", "norm"), ("false", "kw"), (";", "norm")])
+                code_rows.append([("  // ", "cmt"), (clean, "cmt")])
+            elif idx == len(lines) - 1:
+                code_rows.append([("  echo", "kw"), (" ", "norm"), (f'"{clean}"', "str"), (";", "norm")])
+            else:
+                code_rows.append([(f"  ${vname} ", "var"), ("= ", "norm"), (f'"{clean}"', "str"), (";", "norm")])
+
+        err_line = len(code_rows) + 1
+        if outcome == "error":
+            code_rows.append([("  throw new", "kw"), (" ", "norm"), ("Exception", "fn"), (f'("{err_var}")', "str"), (";", "norm")])
+        elif outcome == "paused":
+            code_rows.append([("  return", "kw"), (" ", "norm"), ('"SESSION_PAUSED"', "str"), (";", "norm")])
+        else:
+            code_rows.append([("  return", "kw"), (" ", "norm"), ("true", "kw"), (";", "norm")])
+        code_rows.append([("}", "norm")])
+        err_info = {"err_line": err_line, "line1": f"✖ Fatal error: Uncaught Exception (Line {err_line:02d})", "line2": f"in /app/{main_fn}.php on line {err_line}", "line3": f"Cause: \"{lines[-1]}\""}
+
+    elif lang == "C# (.cs)":
+        ext = "cs"
+        code_rows.append([("async Task", "kw"), (" ", "norm"), (cls_name, "fn"), ("() {", "norm")])
+        for idx, line in enumerate(lines):
+            clean = line.replace('"', "'")
+            vname = extract_slug(line, f"prop_{idx}")
+            if idx == 0:
+                code_rows.append([("  bool", "kw"), (f" {vname} ", "var"), ("= ", "norm"), ("false", "kw"), (";", "norm")])
+                code_rows.append([("  // ", "cmt"), (clean, "cmt")])
+            elif idx == len(lines) - 1:
+                code_rows.append([("  ", "norm"), ("Console.WriteLine", "fn"), (f'("{clean}")', "str"), (";", "norm")])
+            else:
+                code_rows.append([("  var", "kw"), (f" {vname} ", "var"), ("= ", "norm"), (f'"{clean}"', "str"), (";", "norm")])
+
+        err_line = len(code_rows) + 1
+        if outcome == "error":
+            code_rows.append([("  throw new", "kw"), (" ", "norm"), ("InvalidOperationException", "fn"), ("();", "norm")])
+        elif outcome == "paused":
+            code_rows.append([("  await", "kw"), (" ", "norm"), ("Task.Delay", "fn"), ("(-1);", "norm")])
+        else:
+            code_rows.append([("  return", "kw"), (" ", "norm"), ("Task.CompletedTask", "var"), (";", "norm")])
+        code_rows.append([("}", "norm")])
+        err_info = {"err_line": err_line, "line1": f"✖ InvalidOperationException (Line {err_line:02d})", "line2": f"at Program.{cls_name}() in {cls_name}.cs:line {err_line}", "line3": f"Cause: \"{lines[-1]}\""}
+
+    elif lang == "Kotlin (.kt)":
+        ext = "kt"
+        code_rows.append([("fun", "kw"), (" ", "norm"), (main_fn, "fn"), ("() {", "norm")])
+        for idx, line in enumerate(lines):
+            clean = line.replace('"', "'")
+            vname = extract_slug(line, f"val_{idx}")
+            if idx == 0:
+                code_rows.append([("  val", "kw"), (f" {vname} ", "var"), ("= ", "norm"), ("false", "kw")])
+                code_rows.append([("  // ", "cmt"), (clean, "cmt")])
+            elif idx == len(lines) - 1:
+                code_rows.append([("  ", "norm"), ("println", "fn"), (f'("{clean}")', "str")])
+            else:
+                code_rows.append([("  val", "kw"), (f" {vname} ", "var"), ("= ", "norm"), (f'"{clean}"', "str")])
+
+        err_line = len(code_rows) + 1
+        if outcome == "error":
+            code_rows.append([("  ", "norm"), ("error", "fn"), (f'("{err_var} failed")', "str")])
+        elif outcome == "paused":
+            code_rows.append([("  return", "kw"), (" ", "norm"), ("Unit", "var")])
+        else:
+            code_rows.append([("  ", "norm"), ("println", "fn"), ('("STATUS_OK")', "str")])
+        code_rows.append([("}", "norm")])
+        err_info = {"err_line": err_line, "line1": f"✖ IllegalStateException (Line {err_line:02d})", "line2": f"at MainKt.{main_fn}({main_fn}.kt:{err_line})", "line3": f"Cause: \"{lines[-1]}\""}
+
+    else:  # Bash Shell (.sh)
+        ext = "sh"
+        code_rows.append([("#!/bin/bash", "cmt")])
+        for idx, line in enumerate(lines):
+            clean = line.replace('"', "'")
+            vname = extract_slug(line, f"STEP_{idx}").upper()
+            if idx == 0:
+                code_rows.append([(f"{vname}=", "var"), ("false", "kw")])
+                code_rows.append([("# ", "cmt"), (clean, "cmt")])
+            else:
+                code_rows.append([("echo", "fn"), (" ", "norm"), (f'"{clean}"', "str")])
+
+        err_line = len(code_rows) + 1
+        if outcome == "error":
+            code_rows.append([("exit", "kw"), (" 1 ", "norm"), (f"# {err_var}_ERR", "cmt")])
+        elif outcome == "paused":
+            code_rows.append([("kill", "fn"), (" -STOP $$", "var")])
+        else:
+            code_rows.append([("exit", "kw"), (" 0 ", "norm"), ("# SUCCESS", "cmt")])
+        err_info = {"err_line": err_line, "line1": f"✖ bash: {main_fn}.sh: line {err_line} (Exit 1)", "line2": f"Process terminated: {err_var}_ERR", "line3": f"Cause: \"{lines[-1]}\""}
+
+    file_out = f"{cls_name}.{ext}" if ext in ("java", "cs") else f"{main_fn}.{ext}"
+    return code_rows, file_out, err_info
+
+# --- RENDERER FRAME MONITOR ---
 def render_monitor_frame(
     base_scene, mon_rect, phase, progress_pct,
     boot_lines, completed_rows, active_row, active_chars, cursor_on,
@@ -371,7 +533,6 @@ def render_monitor_frame(
             s_draw.rounded_rectangle([bx1 + 3, by1 + 3, bx1 + 3 + fill_w, by2 - 3], radius=2, fill=th["term_bar"])
 
     else:
-        # 1. Header Tab Editor di bagian paling atas layar monitor
         hdr_h = 24
         s_draw.rectangle([0, 0, sw, hdr_h], fill=(12, 18, 28))
         s_draw.line([(0, hdr_h), (sw, hdr_h)], fill=(35, 50, 72), width=1)
@@ -380,13 +541,11 @@ def render_monitor_frame(
         s_draw.ellipse([34, 8, 41, 15], fill=(39, 201, 63))
         s_draw.text((50, 5), f"{file_label}  •  UTF-8", fill=th["term_cmd"], font=f_tab)
 
-        # 2. Susun baris visual ter-wrap agar nomor baris dan token tetap utuh saat AUTO-SCROLL
         gutter_x = 10
         code_x = 34
         max_code_w = sw - code_x - 10
         line_h = 19
 
-        # Kumpulkan baris-baris yang akan digambar: (line_num_or_None, [(char, color), ...], is_err_row, draw_cursor)
         visual_lines = []
 
         def process_token_row(row_tokens, line_num, char_limit=None, show_cur=False):
@@ -411,7 +570,7 @@ def render_monitor_frame(
                     if cur_w + cw > max_code_w and cur_chars:
                         visual_lines.append((line_num if first_subline else None, cur_chars, is_err, False))
                         first_subline = False
-                        cur_chars = [(" ", col), (" ", col)]  # indentasi wrap
+                        cur_chars = [(" ", col), (" ", col)]
                         cur_w = cw * 2
                     cur_chars.append((ch, col))
                     cur_w += cw
@@ -425,12 +584,9 @@ def render_monitor_frame(
         if active_row is not None:
             process_token_row(active_row, len(completed_rows) + 1, char_limit=active_chars, show_cur=True)
 
-        # Hitung ruang vertikal yang tersedia di atas kotak status bawah
         footer_reserve = 78 if (phase == "ending" and outcome == "error") else (48 if phase == "ending" else 12)
         avail_h = sh - (hdr_h + 6) - footer_reserve
         max_vis = max(1, avail_h // line_h)
-
-        # AUTO-SCROLL: ambil baris terbawah yang muat di layar monitor
         vis_slice = visual_lines[-max_vis:]
 
         cy = hdr_h + 6
@@ -450,7 +606,6 @@ def render_monitor_frame(
                 s_draw.rectangle([cx + 1, cy + 2, cx + 8, cy + 15], fill=th["fn"])
             cy += line_h
 
-        # 3. Kotak Log Error / Status Rapi di Bawah Layar Monitor
         if phase == "ending":
             if outcome == "error":
                 by1, by2 = sh - 72, sh - 8
@@ -472,7 +627,6 @@ def render_monitor_frame(
                 s_draw.rounded_rectangle([10, by1, sw - 10, by2], radius=6, fill=(10, 55, 25), outline=(65, 255, 130), width=2)
                 s_draw.text((20, by1 + 10), "[100%] SYSTEM REPAIRED • EXIT 0", fill=(75, 255, 140), font=f_err_title)
 
-    # Efek Neon Text Glow pada layar monitor
     glow = scr_layer.filter(ImageFilter.GaussianBlur(radius=3))
     scr_glowed = Image.fromarray(
         np.clip(np.array(scr_layer, dtype=np.int16) + (np.array(glow, dtype=np.int16) * 0.55).astype(np.int16), 0, 255).astype(np.uint8)
@@ -543,7 +697,6 @@ if st.button("🎬 Generate Video Kode Programmer", type="primary", use_containe
 
         outcome = detect_outcome(user_words, ending_mode)
         code_rows, file_label, error_info = build_code_tokens(user_words, lang_mode, outcome)
-        slug = file_label.split(".")[0]
         th_active = THEMES.get(setup_theme, THEMES["Cyberpunk City Night"])
 
         with st.spinner("Merender setup meja malam & kode pemrograman..."):
@@ -597,7 +750,6 @@ if st.button("🎬 Generate Video Kode Programmer", type="primary", use_containe
 
             proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
             try:
-                # 1. Fase Booting & Progress Bar 0% -> 100%
                 for bf in range(boot_frames):
                     pct = min(100, int((bf / max(1, boot_frames - 1)) * 100))
                     visible_boots = boot_steps[: 1 + min(2, int((bf / boot_frames) * 3))]
@@ -608,7 +760,6 @@ if st.button("🎬 Generate Video Kode Programmer", type="primary", use_containe
                         )
                     )
 
-                # 2. Fase Ngoding Sintaks Asli di Layar Monitor
                 completed = []
                 for idx, r_tok in enumerate(code_rows):
                     full_s = "".join(t[0] for t in r_tok)
@@ -639,7 +790,6 @@ if st.button("🎬 Generate Video Kode Programmer", type="primary", use_containe
                                 )
                             )
 
-                # 3. Fase Ending (Highlight Baris Error Merah + Stack Trace Rapi)
                 for _ in range(end_frames):
                     proc.stdin.write(
                         render_monitor_frame(
